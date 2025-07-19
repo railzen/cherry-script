@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #cp -f ./ludo.sh ${work_path}/ludo.sh > /dev/null 2>&1
 
-main_version="V1.1.18 Build250715"
+main_version="V1.1.30 Build260119"
 work_path="/opt/CherryScript"
 
 main_menu_start() {
@@ -17,6 +17,8 @@ echo -e             "  \_____|_|  |_|______|_|  \_\_|  \_\ |_|   ${White}\n"
 echo -e "${LightBlue}Cherry Script $main_version (Support for Ubuntu/Debian)${White}"
 echo -e "${LightBlue}Personal use, unauthorized use prohibited!${White}"
 echo -e "${LightBlue}------- Press ${DarkYellow}ludo${LightBlue} to start script -------${White}"
+#ssh_port=$(ss -tnlp 2>/dev/null | awk '/sshd/ && /LISTEN/ {sub(".*:", "", $4); print $4; exit}'); [ -n "$ssh_port" ] && command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q '^Status: active' && (ufw status 2>/dev/null | awk -v p="$ssh_port" '$2=="ALLOW" && $1 ~ "(^|,|:|/)" p "(/tcp)?($|,|:)" {found=1} END {exit !found}' && echo -e "${DarkYellow}SSH Port $ssh_port Open${White}" || echo -e "${LightBlue}SSH Port $ssh_port Close${White}")
+ssh_port=$(ss -tnlp 2>/dev/null | awk '/sshd/ && /LISTEN/ {sub(".*:", "", $4); print $4; exit}'); [ "$ssh_port" = "22" ] && command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q '^Status: active' && (ufw status 2>/dev/null | awk '$2=="ALLOW" && $1 ~ "(^|,|:|/)(22)(/tcp)?($|,|:)" {r++; for(i=3;i<=NF;i++) if($i~/^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/||$i~/:/) ip++} END{exit !(r>0 && !(r==1 && ip==1))}' && echo -e "${DarkYellow}SSH Port 22 Open${White}" || echo -e "${LightBlue}SSH Port 22 Close${White}")
 echo "------------------------"
 echo "1. 系统信息查询"
 echo "2. 系统更新"
@@ -31,6 +33,7 @@ echo "10. 系统工具 ▶ "
 echo "11. 安装Snell V4 ▶ "
 echo "12. 安装Hysteria2 ▶ "
 echo "13. SingBox脚本 ▶ "
+echo "14. 安装脚本依赖 "
 echo "------------------------"
 if [[ ${startup_check_new_version} == "true" ]]; then
     echo -e "99. 脚本更新 ${DarkYellow}● ${White}"
@@ -273,9 +276,9 @@ case $choice in
               clear
               echo "工具已安装，使用方法如下："
               tmux --help
+              clear
               ;;
             10)
-              clear
               install ffmpeg
               clear
               echo "工具已安装，使用方法如下："
@@ -317,6 +320,7 @@ case $choice in
                 if [ ! -f "/etc/systemd/system/Cherry-frps.service" ];then
                     read -p "尚未安装FRPS服务，是否安装？[Y/n]" yn
                     if [[ ${yn} == [Yy] ]]; then
+                        mkdir -p ${work_path}/config
                         mkdir -p ${work_path}/frps && cd ${work_path}/frps
                         wget -q -nc --no-check-certificate https://raw.githubusercontent.com/railzen/CherryScript/main/tools/frps && chmod +x frps
                         wget -q -nc --no-check-certificate https://raw.githubusercontent.com/railzen/CherryScript/main/tools/frps.toml
@@ -356,6 +360,7 @@ WantedBy=multi-user.target' > /etc/systemd/system/Cherry-frps.service
              16)
               clear
               read -p "是否确认安装gost并同步安装开机自启服务？[Y/n]" yn
+              [[ -z "${yn}" ]] && yn="y"
               if [[ ${yn} == [Yy] ]]; then
               # 安装最新版本 [https://github.com/go-gost/gost/releases](https://github.com/go-gost/gost/releases)
                 bash <(curl -fsSL https://github.com/go-gost/gost/raw/master/install.sh) --install
@@ -1175,11 +1180,10 @@ WantedBy=multi-user.target' > /etc/systemd/system/Cherry-startup.service
 
             panelurl="https://1panel.cn/"
 
-
-            centos_mingling="curl -sSL https://resource.fit2cloud.com/1panel/package/quick_start.sh -o quick_start.sh"
+            centos_mingling="curl -sSL https://resource.fit2cloud.com/1panel/package/v2/quick_start.sh -o quick_start.sh"
             centos_mingling2="sh quick_start.sh"
 
-            ubuntu_mingling="curl -sSL https://resource.fit2cloud.com/1panel/package/quick_start.sh -o quick_start.sh"
+            ubuntu_mingling="curl -sSL https://resource.fit2cloud.com/1panel/package/v2/quick_start.sh -o quick_start.sh"
             ubuntu_mingling2="bash quick_start.sh"
 
             install_panel
@@ -1288,8 +1292,8 @@ WantedBy=multi-user.target' > /etc/systemd/system/Cherry-startup.service
               ;;
           7)
             clear
-            curl -L https://raw.githubusercontent.com/nezhahq/scripts/refs/heads/v0/install.sh -o nezha.sh && chmod +x nezha.sh 
-            ./nezha.sh
+            curl -L https://raw.githubusercontent.com/railzen/nezha-zero/main/script/naza.sh -o naza.sh && chmod +x naza.sh 
+            ./naza.sh
               ;;
 
           8)
@@ -2920,14 +2924,25 @@ WantedBy=multi-user.target' > /etc/systemd/system/Cherry-startup.service
 
                   case $sub_choice in
                       1)
+                        # 检查 lsb_release 是否存在
+                        if ! command -v lsb_release >/dev/null 2>&1; then
+                            # 判断使用的是 apt 还是 yum（Debian系 和 RHEL/CentOS系 都兼容）
+                            if command -v apt-get >/dev/null 2>&1; then
+                                sudo apt-get update -qq
+                                sudo apt-get install -y -qq lsb-release
+                            elif command -v yum >/dev/null 2>&1; then
+                                sudo yum install -y -q redhat-lsb-core
+                            fi
+                        fi
+
                         apt purge -y 'linux-*xanmod1*'
                         update-grub
 
-                        wget -qO - https://dl.xanmod.org/archive.key | gpg --dearmor -o /usr/share/keyrings/xanmod-archive-keyring.gpg --yes
+                        wget -qO - https://dl.xanmod.org/archive.key | gpg --dearmor -vo /etc/apt/keyrings/xanmod-archive-keyring.gpg
                         #wget -qO - https://raw.githubusercontent.com/railzen/CherryScript/main/tools/cherry/config/archive.key | gpg --dearmor -o /usr/share/keyrings/xanmod-archive-keyring.gpg --yes
 
                         # 步骤3：添加存储库
-                        echo 'deb [signed-by=/usr/share/keyrings/xanmod-archive-keyring.gpg] http://deb.xanmod.org releases main' | tee /etc/apt/sources.list.d/xanmod-release.list
+                        echo 'deb [signed-by=/etc/apt/keyrings/xanmod-archive-keyring.gpg] http://deb.xanmod.org $(lsb_release -sc) main' | tee /etc/apt/sources.list.d/xanmod-release.list
 
                         version=$(wget -q https://dl.xanmod.org/check_x86-64_psabi.sh && chmod +x check_x86-64_psabi.sh && ./check_x86-64_psabi.sh | grep -oP 'x86-64-v\K\d+|x86-64-v\d+')
                         # version=$(wget -q https://raw.githubusercontent.com/railzen/CherryScript/main/tools/check_x86-64_psabi.sh && chmod +x check_x86-64_psabi.sh && ./check_x86-64_psabi.sh | grep -oP 'x86-64-v\K\d+|x86-64-v\d+')
@@ -3840,6 +3855,11 @@ WantedBy=multi-user.target' > /etc/systemd/system/Cherry-startup.service
     clear
     curl -sS -O https://raw.githubusercontent.com/railzen/CherryScript/main/proxy/sing_box.sh && chmod +x sing_box.sh && ./sing_box.sh
     ;;
+  14)
+    clear
+    install curl wget sudo net-tools ufw unzip
+    break_end
+    ;;
 
  99)
     Update_Shell
@@ -3968,7 +3988,7 @@ install() {
             elif command -v yum &>/dev/null; then
                 yum -y update && yum -y install "$package"
             elif command -v apt &>/dev/null; then
-                apt update -y && apt install -y "$package"
+                apt-get update -y && apt install -y "$package"
             elif command -v apk &>/dev/null; then
                 apk update && apk add "$package"
             else
@@ -4656,13 +4676,22 @@ fi
 
 add_sshkey() {
 #ssh-keygen -t rsa -b 4096 -C "xxxx@gmail.com" -f /root/.ssh/sshkey -N ""
-read -p "请输入SSH公钥： " sshPublicKey
-
-if [ -z "$sshPublicKey" ]; then
-    sshPublicKey="ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCrQNcEPHhji5+5Kwozb6LlTkplfhIicDJKuOI0O8xMBFA8p8vqhwf1eVT0LA3tTlmtRSIk8tAW1L/vAVzzNn7BZ/uJCEnlF4gZj1YkMILXE4zaB5Zy13b5Ngxzkm3ErpJ1vhKwueUUBd0VnOeqIcLIpYiuysykJh46YzS0ivX7jNw6I1aoonjWv8xPDdE84lpik6xtREZMHK1Lp7MAh7ez1k8X6JUHU9i7pbS3M66a8//qAzCy1vRtn0DvaWpfcw2XWXuxA/vPSmNA1ewdPObH3iNcVYtGCL9ECPPWdOlssskvxTM0XmGT9JC5bExqSJ1ODttkN5imETN0pWcOpT5L"
-    echo -e "${red}您输入的公钥信息为空！这里展示一个示范公钥，请您注意删除 ${white}"
+if [ -z "$1" ]; then
+    # 循环直到用户输入非空内容
+    while true; do
+        read -p "请输入SSH公钥： " sshPublicKey  
+        # 检查变量是否为空（去除了首尾空白字符后）
+        if [[ -n "${sshPublicKey// }" ]]; then
+            break
+        else
+            echo "错误：SSH公钥不能为空，请重新输入！"
+        fi
+    done
+else
+    sshPublicKey=$1
 fi
 
+mkdir -p ~/.ssh
 echo ${sshPublicKey} >> ~/.ssh/authorized_keys
 chmod 600 ~/.ssh/authorized_keys
 
@@ -4722,6 +4751,7 @@ chech_dependance() {
 
     # 初始化环境
     mkdir -p ${work_path}/work > /dev/null 2>&1
+	chmod +x ./ludo.sh > /dev/null 2>&1
     mv -f ./ludo.sh ${work_path}/ludo.sh > /dev/null 2>&1
     cp -f ${work_path}/ludo.sh /usr/local/bin/ludo > /dev/null 2>&1
     cd ${work_path}/work
@@ -4754,6 +4784,9 @@ elif [[ ! $# = 0 && $1 = "edit" ]];then
     vi $work_path/config/start.sh
     #ls /etc/systemd/system | grep Cherry- | xargs systemctl restart
     exit 0
+elif [[ ! $# = 0 && $1 = "sshkey" && -n "$2" ]];then
+    add_sshkey $2
+    sleep 1
 fi
 
 # 存在文件，检查依赖及展示菜单

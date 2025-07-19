@@ -1,6 +1,6 @@
 #!/bin/bash
 author=railzen
-is_sh_ver=V1.0.7
+is_sh_ver=V1.0.9
 
 # bash fonts colors
 red='\e[31m'
@@ -73,6 +73,7 @@ servername_list=(
     www.mytvsuper.com
     genshin.hoyoverse.com
     www.tesla.com
+    learn.microsoft.com
 )
 
 protocol_list=(
@@ -1455,7 +1456,7 @@ get() {
             get ping
             if [[ ! $(grep $ip <<<$is_host_dns) ]]; then
                 _cyan "\n测试结果: $is_host_dns"
-                err "域名 ($host) 没有解析到 ($ip)"
+                echo "域名 ($host) 没有解析到 ($ip)"
             fi
         fi
         ;;
@@ -1578,6 +1579,7 @@ info() {
         is_can_change=(0 1 4 6)
         is_info_show=(0 1 2 10 11)
         is_url="ss://$(echo -n ${ss_method}:${ss_password} | base64 -w 0)@${is_addr}:${port}#$currentCountry-$net-${is_addr}"
+        url_clash_echo="{name: $currentCountry-$is_addr, server: ${is_addr}, port: ${port}, type: ss, cipher: ${ss_method}, password: ${ss_password}}"
         is_info_str=($is_protocol $is_addr $port $ss_password $ss_method)
         ;;
     trojan)
@@ -1613,6 +1615,7 @@ info() {
         }
         is_info_str=($is_protocol $is_addr $port $uuid $is_flow $is_net_type reality $is_servername chrome $is_public_key)
         is_url="$is_protocol://$uuid@$ip:$port?encryption=none&security=reality&flow=$is_flow&type=$is_net_type&sni=$is_servername&pbk=$is_public_key&fp=chrome#$currentCountry-$net-$is_addr"
+        url_clash_echo="{name: $currentCountry-$is_addr, server: $ip, port: $port, reality-opts: {public-key: $is_public_key}, client-fingerprint: chrome, type: vless, uuid: $uuid, tls: true, flow: $is_flow, servername: $is_servername, network: tcp}"
         ;;
     direct)
         is_can_change=(0 1 7 8)
@@ -1641,7 +1644,13 @@ info() {
     if [[ $is_url ]]; then
         msg "------------- ${info_list[12]} -------------"
         msg "\033[0;32m${is_url}\033[0m"
+        if [ -n "$url_clash_echo" ]; then
+            msg "\033[0;32m${url_clash_echo}\033[0m"
+        fi
         echo $is_url >> ~/Proxy.txt 
+        if [ -n "$url_clash_echo" ]; then
+            echo $url_clash_echo >> ~/Proxy.txt 
+        fi
         [[ $is_insecure ]] && {
             warn "某些客户端如(V2rayN 等)导入URL需手动将: 跳过证书验证(allowInsecure) 设置为 true, 或打开: 允许不安全的连接"
         }
@@ -1793,7 +1802,7 @@ install_pkg() {
 download() {
     case $1 in
     core)
-        [[ ! $is_core_ver ]] && is_core_ver=$(_wget -qO- "https://api.github.com/repos/${is_core_repo}/releases/latest?v=$RANDOM" | grep tag_name | egrep -o 'v([0-9.]+)')
+        [[ ! $is_core_ver ]] && is_core_ver=$(_wget -qO- "https://api.github.com/repos/${is_core_repo}/releases/latest?v=$RANDOM" | grep tag_name | egrep -o 'v([0-9.]+)') 
         [[ $is_core_ver ]] && link="https://github.com/${is_core_repo}/releases/download/${is_core_ver}/${is_core}-${is_core_ver:1}-linux-${is_arch}.tar.gz"
         name=$is_core_name
         tmpfile=$tmpcore
@@ -2108,7 +2117,10 @@ chenk_install() {
     # create sh dir...
     mkdir -p $is_sh_dir
 
-    #install_script_start
+    # create soft link
+    if [[ -d $is_core_dir && -d "/opt/CherryScript" && ! -d "/opt/CherryScript/sing-box" ]]; then
+        ln -s /etc/sing-box /opt/CherryScript/sing-box
+    fi
 
     cd $is_sh_dir
     curl -sSO "https://raw.githubusercontent.com/railzen/CherryScript/main/proxy/sing_box.sh"
