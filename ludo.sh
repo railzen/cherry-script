@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #cp -f ./ludo.sh ${work_path}/ludo.sh > /dev/null 2>&1
 
-main_version="V1.1.31 Build260119"
+main_version="V1.1.32 Build260119"
 work_path="/opt/CherryScript"
 
 main_menu_start() {
@@ -4692,8 +4692,12 @@ else
 fi
 
 mkdir -p ~/.ssh
-echo ${sshPublicKey} >> ~/.ssh/authorized_keys
-chmod 600 ~/.ssh/authorized_keys
+if grep -Fxq "$sshPublicKey" ~/.ssh/authorized_keys; then
+    echo "公钥已存在，跳过添加"
+else
+	echo ${sshPublicKey} >> ~/.ssh/authorized_keys
+	chmod 600 ~/.ssh/authorized_keys
+fi
 
 echo -e "您输入的公钥信息已经保存到 /.ssh/authorized_keys "
 echo -e "您公钥信息为： "
