@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #cp -f ./ludo.sh ${work_path}/ludo.sh > /dev/null 2>&1
 
-main_version="V1.1.30 Build260119"
+main_version="V1.1.31 Build260119"
 work_path="/opt/CherryScript"
 
 main_menu_start() {
@@ -4688,7 +4688,7 @@ if [ -z "$1" ]; then
         fi
     done
 else
-    sshPublicKey=$1
+    sshPublicKey="$1"
 fi
 
 mkdir -p ~/.ssh
@@ -4706,7 +4706,9 @@ sed -i -e 's/^\s*#\?\s*PermitRootLogin .*/PermitRootLogin prohibit-password/' \
        -e 's/^\s*#\?\s*PubkeyAuthentication .*/PubkeyAuthentication yes/' \
        -e 's/^\s*#\?\s*ChallengeResponseAuthentication .*/ChallengeResponseAuthentication no/' /etc/ssh/sshd_config
 rm -rf /etc/ssh/sshd_config.d/* /etc/ssh/ssh_config.d/*
-read -p "按任意键重启SSH以生效..." temp
+if [ -z "$1" ]; then
+	read -p "按任意键重启SSH以生效..." temp
+fi
 restart_ssh
 echo -e "${Green}ROOT私钥登录已开启，已关闭ROOT密码登录，重连将会生效${White}"
 
@@ -4785,7 +4787,7 @@ elif [[ ! $# = 0 && $1 = "edit" ]];then
     #ls /etc/systemd/system | grep Cherry- | xargs systemctl restart
     exit 0
 elif [[ ! $# = 0 && $1 = "sshkey" && -n "$2" ]];then
-    add_sshkey $2
+    add_sshkey "$2"
     sleep 1
 fi
 
