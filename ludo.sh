@@ -2356,7 +2356,7 @@ WantedBy=multi-user.target' > /etc/systemd/system/Cherry-startup.service
                     fi
 
                     # 全部校验通过
-                    new_ssh_port
+                    config_new_ssh_port "$new_port"
                     break
                 done
               ;;
@@ -4642,7 +4642,7 @@ linux_clean() {
 
 }
 
-new_ssh_port() {
+config_new_ssh_port() {
 
   # 备份 SSH 配置文件
   cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak
@@ -4650,20 +4650,17 @@ new_ssh_port() {
   sed -i 's/^\s*#\?\s*Port/Port/' /etc/ssh/sshd_config
 
   # 替换 SSH 配置文件中的端口号
-  sed -i "s/Port [0-9]\+/Port $new_port/g" /etc/ssh/sshd_config
+  sed -i "s/Port [0-9]\+/Port $1/g" /etc/ssh/sshd_config
   rm -rf /etc/ssh/sshd_config.d/* /etc/ssh/ssh_config.d/*
 
   # 指定新端口放通
-  open_firewall_port $new_port > /dev/null 2>&1
+  open_firewall_port $1 > /dev/null 2>&1
 
   # 重启 SSH 服务
   restart_ssh
-  echo "SSH 端口已修改为: $new_port"
+  echo "SSH 端口已修改为: $1,端口防火墙已放通"
 
   sleep 1
-  #iptables_open
-  #remove iptables-persistent ufw firewalld iptables-services > /dev/null 2>&1
-
 }
 
 bbr_on() {
