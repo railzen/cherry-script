@@ -2326,21 +2326,39 @@ WantedBy=multi-user.target' > /etc/systemd/system/Cherry-startup.service
 
                 # 提示用户输入新的 SSH 端口号
                 read -p "请输入新的 SSH 端口号: " new_port
+                
+                echo "端口号范围 1-65535（输入 0 退出）"
 
-                # 判断端口号是否在有效范围内
-                if [[ $new_port =~ ^[0-9]+$ ]]; then  # 检查输入是否为数字
-                    if [[ $new_port -ge 1 && $new_port -le 65535 ]]; then
-                        new_ssh_port
-                    elif [[ $new_port -eq 0 ]]; then
-                        break
-                    else
-                        echo "端口号无效，请输入1到65535之间的数字。"
-                        break_end
+                while true; do
+                    read -p "请输入新的 SSH 端口号: " new_port
+
+                    # 只允许数字
+                    if [[ ! $new_port =~ ^[0-9]+$ ]]; then
+                        echo "输入无效，请输入数字。"
+                        continue
                     fi
-                else
-                    echo "输入无效，请输入数字。"
-                    break_end
-                fi
+
+                    # 退出
+                    if [[ $new_port -eq 0 ]]; then
+                        break
+                    fi
+
+                    # 范围校验
+                    if [[ $new_port -lt 1 || $new_port -gt 65535 ]]; then
+                        echo "端口号无效，请输入 1 到 65535 之间的数字。"
+                        continue
+                    fi
+
+                    # 占用检测
+                    if port_in_use "$new_port"; then
+                        echo "端口 $new_port 已被占用，请重新输入。"
+                        continue
+                    fi
+
+                    # 全部校验通过
+                    new_ssh_port
+                    break
+                done
               ;;
 
           6)
@@ -3961,6 +3979,17 @@ disable_ipv6() {
 }
 
 # 结束IPV6优先级的函数部分[/TAG279]
+
+port_in_use() {
+  local p="$1"
+  if have_cmd ss; then
+    ss -lntp 2>/dev/null | awk '{print $4}' | grep -Eq "[:.]${p}$" && return 0
+  elif have_cmd netstat; then
+    netstat -lntp 2>/dev/null | awk '{print $4}' | grep -Eq "[:.]${p}$" && return 0
+  fi
+  return 1
+}
+
 Update_Shell(){
 	echo -e "当前版本为 ${main_version} ，开始检测最新版本..."
 	sh_new_ver=$(curl -s "https://raw.githubusercontent.com/railzen/CherryScript/main/ludo.sh"|grep 'main_version="'|awk -F "=" '{print $NF}'|sed 's/\"//g'|head -1)
