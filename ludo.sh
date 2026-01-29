@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #cp -f ./ludo.sh ${work_path}/ludo.sh > /dev/null 2>&1
 
-main_version="V1.1.33 Build260129"
+main_version="V1.1.35 Build260129"
 work_path="/opt/CherryScript"
 
 main_menu_start() {
@@ -17,7 +17,11 @@ echo -e             "  \_____|_|  |_|______|_|  \_\_|  \_\ |_|   ${White}\n"
 echo -e "${LightBlue}Cherry Script $main_version (Support for Ubuntu/Debian)${White}"
 echo -e "${LightBlue}Personal use, unauthorized use prohibited!${White}"
 echo -e "${LightBlue}------- Press ${DarkYellow}ludo${LightBlue} to start script -------${White}"
-ssh_port=$(ss -tnlp 2>/dev/null | awk '/sshd/ && /LISTEN/ {sub(".*:", "", $4); print $4; exit}'); [ "$ssh_port" = "22" ] && command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q '^Status: active' && (ufw status 2>/dev/null | awk '$2=="ALLOW" && $1 ~ "(^|,|:|/)(22)(/tcp)?($|,|:)" {r++; for(i=3;i<=NF;i++) if($i~/^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/||$i~/:/) ip++} END{exit !(r>0 && !(r==1 && ip==1))}' && echo -e "${DarkYellow}SSH Port 22 Open${White}" || echo -e "${LightBlue}SSH Port 22 Close${White}")
+if ssh_port_is_open; then
+    echo -e "${DarkYellow}SSH Port $global_ssh_port Open${White}"
+else
+    echo -e "${LightBlue}SSH Port $global_ssh_port Close${White}"
+fi
 echo "------------------------"
 echo "1. 系统信息查询"
 echo "2. 系统更新"
@@ -2320,15 +2324,8 @@ WantedBy=multi-user.target' > /etc/systemd/system/Cherry-startup.service
 
                 # 打印当前的 SSH 端口号
                 echo -e "当前的 SSH 端口号是:  ${huang}$current_port ${bai}"
-
-                echo "------------------------"
-                echo "端口号范围1到65535之间的数字。（输入0退出）"
-
-                # 提示用户输入新的 SSH 端口号
-                read -p "请输入新的 SSH 端口号: " new_port
-                
+                echo "------------------------"              
                 echo "端口号范围 1-65535（输入 0 退出）"
-
                 while true; do
                     read -p "请输入新的 SSH 端口号: " new_port
 
@@ -4797,6 +4794,77 @@ server_reboot
 root_use() {
 clear
 [ "$EUID" -ne 0 ] && echo -e "${Yellow}请注意，该功能需要root用户才能运行！${White}" && break_end && back_main
+}
+
+ssh_port_is_open() {
+    global_ssh_port=$(
+        ss -tnlp 2>/dev/null |
+        awk '/sshd/ && /LISTEN/ {sub(".*:", "", $4); print $4; exit}'
+    )
+    [ -z "$global_ssh_port" ] && return 1
+
+    firewall_active=0
+    ssh_allowed=0
+
+    if command -v ufw >/dev/null 2>&1; then
+        ufw_status=$(ufw status 2>/dev/null | awk '/Status:/ {print $2}')
+        if [ "$ufw_status" = "active" ]; then
+            ufw_rules=$(ufw status 2>/dev/null)
+            if echo "$ufw_rules" | awk -v p="$global_ssh_port" '
+                $2=="ALLOW" && $1 ~ "(^|,|:|/)("p")(/tcp)?($|,|:)" { r++; for(i=3;i<=NF;i++) if($i~/^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/||$i~/:/) ip++ } END{exit !(r>0 && !(r==1 && ip==1))}'
+            then
+                firewall_active=1
+                ssh_allowed=1
+            else
+                # 只有当 ufw 有规则才算 active
+                if echo "$ufw_rules" | awk 'NR>2 {exit 0}'; then
+                    firewall_active=1
+                fi
+            fi
+        fi
+    fi
+
+    if command -v firewall-cmd >/dev/null 2>&1 && firewall-cmd --state >/dev/null 2>&1; then
+        ports=$(firewall-cmd --list-ports 2>/dev/null)
+        services=$(firewall-cmd --list-services 2>/dev/null)
+
+        # 只有存在端口/服务才算 active
+        if [ -n "$ports" ] || [ -n "$services" ]; then
+            firewall_active=1
+            echo "$ports" | grep -qw "${global_ssh_port}/tcp" && ssh_allowed=1
+            echo "$services" | grep -qw ssh && [ "$global_ssh_port" = "22" ] && ssh_allowed=1
+        fi
+    fi
+
+    if command -v iptables >/dev/null 2>&1; then
+        ssh_rules=$(iptables -S INPUT 2>/dev/null | grep -- "-p tcp" | grep -- "--dport $global_ssh_port")
+        if [ -n "$ssh_rules" ]; then
+            firewall_active=1
+            echo "$ssh_rules" | awk -v p="$global_ssh_port" '
+                $0 ~ "-j ACCEPT" { r++; if($0 ~ "-s ") ip++ } END { exit !(r>0 && !(r==1 && ip==1)) }
+            ' && ssh_allowed=1
+        fi
+    fi
+
+    if command -v nft >/dev/null 2>&1; then
+        ruleset=$(nft list ruleset 2>/dev/null)
+        ssh_rules=$(echo "$ruleset" | awk -v p="$global_ssh_port" '
+            /hook input/ {hook=1}
+            hook && /tcp dport/ && $0 ~ p {print $0}
+        ')
+        if [ -n "$ssh_rules" ]; then
+            firewall_active=1
+            echo "$ssh_rules" | awk -v p="$global_ssh_port" '
+                /accept/ { r++; if($0 ~ "ip saddr" || $0 ~ "ip6 saddr") ip++ } END { exit !(r>0 && !(r==1 && ip==1)) }
+            ' && ssh_allowed=1
+        fi
+    fi
+
+    if [ "$ssh_allowed" -eq 1 ] || [ "$firewall_active" -eq 0 ]; then
+        return 0
+    fi
+
+    return 1
 }
 
 # 检查变量和初始化变量
