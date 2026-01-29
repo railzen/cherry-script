@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #cp -f ./ludo.sh ${work_path}/ludo.sh > /dev/null 2>&1
 
-main_version="V1.1.32 Build260119"
+main_version="V1.1.33 Build260129"
 work_path="/opt/CherryScript"
 
 main_menu_start() {
@@ -881,6 +881,7 @@ WantedBy=multi-user.target' > /etc/systemd/system/Cherry-startup.service
       echo "26. Region流媒体解锁测试"
       echo "27. Yeahwu流媒体解锁检测"
       echo "28. XYkt_IP质量体检脚本"
+      echo "29. Telegram 延迟测试"
       echo ""
       echo "----综合性测试-----------"
       echo "31. bench性能测试"
@@ -1111,6 +1112,10 @@ WantedBy=multi-user.target' > /etc/systemd/system/Cherry-startup.service
           28)
               clear
               bash <(curl -Ls IP.Check.Place)
+              ;;
+          29)
+              clear
+              bash <(curl -fsSL https://sub.777337.xyz/tgdc.sh)
               ;;
           31)
               clear
@@ -2611,7 +2616,6 @@ WantedBy=multi-user.target' > /etc/systemd/system/Cherry-startup.service
                 echo "1. IPv4 优先        2. IPv6 优先 "
                 echo "3. 启用 IPv6        4. 禁用 IPv6 "
                 echo "5. 还原 网络(IPv4/IPv6) 默认配置 "
-                echo "6. 还原 IPv6(启用/禁用) 默认配置  "
                 echo "------------------------"
                 echo "0. 返回主菜单"
                 echo "------------------------"
@@ -2619,16 +2623,12 @@ WantedBy=multi-user.target' > /etc/systemd/system/Cherry-startup.service
 
                 case $choice in
                     1)
-                        sysctl -w net.ipv6.conf.all.disable_ipv6=1 > /dev/null 2>&1
-                        restore_ip46
                         prefer_ipv4
                         echo "已切换为 IPv4 优先,可能需要重启！"
                         echo
                         ;;
 
                     2)
-                        sysctl -w net.ipv6.conf.all.disable_ipv6=0 > /dev/null 2>&1
-                        restore_ip46
                         prefer_ipv6
                         echo "已切换为 IPv6 优先,可能需要重启！"
                         echo
@@ -2636,26 +2636,22 @@ WantedBy=multi-user.target' > /etc/systemd/system/Cherry-startup.service
                         
                     3)
                         openipv6 > /dev/null 2>&1
-                        restore_ipv6
+                        restore_ip46
                         enable_ipv6
                         echo "已启用 IPv6,可能需要重启！"
                         echo
                     ;;
 
                     4)
+                        restore_ip46
                         closeipv6 > /dev/null 2>&1
-                        restore_ipv6
                         disable_ipv6
                         echo "已禁用 IPv6,可能需要重启！"
                         echo
                     ;;
 
                     5)
-                        restore_ip46 'info'
-                    ;;
-
-                    6)
-                        restore_ipv6 'info'
+                        restore_ip46
                     ;;
 
                     0)
@@ -3893,37 +3889,70 @@ restart_network() {
   else echo -e "${Yellow}无法重启网络服务, 请手动重启${White}"
   fi
 }
-
+have_cmd() { command -v "$1" >/dev/null 2>&1; }
 # = prefer IPv4/IPv6
 restore_ip46() {
   if [[ -f $GAICONF ]]; then
     sed -i "/$MARK/d" $GAICONF
   fi
-  if [[ "$@" = 'info' ]]; then echo -e "${Green}已还原为默认配置${White}"; fi
-}
-prefer_ipv4() {
-  echo "precedence ::ffff:0:0/96  100 $MARK" >>$GAICONF
-}
-prefer_ipv6() {
-  echo "label 2002::/16   2 $MARK" >>$GAICONF
-}
-
-
-# = enable/disable IPv6
-restore_ipv6() {
-  sed -i "/$MARK/d" $SYSCTLCONF
   if [[ "$@" = 'info' ]]; then reload_sysctl;restart_network;echo -e "${Green}已还原为默认配置${White}"; fi
 }
-interfaces=("all" "default");
+prefer_ipv4() {
+  touch -p $GAICONF &> /dev/null
+  echo "precedence ::ffff:0:0/96  100 $MARK" >>$GAICONF
+  sed -i '/^\s*precedence\s\+::ffff:0:0\/96\s\+[0-9]\+\s*$/d' "$GAICONF"
+  printf "\n# %s managed: prefer IPv4\nprecedence ::ffff:0:0/96  100\n" "$MARK" >> "$GAICONF"
+}
+prefer_ipv6() {
+  touch -p $GAICONF &> /dev/null
+  echo "label 2002::/16   2 $MARK" >>$GAICONF
+  sed -i '/^\s*#\s*'"${MARK}"'\s*managed: prefer IPv4\s*$/d' "$GAICONF"
+  sed -i '/^\s*precedence\s\+::ffff:0:0\/96\s\+[0-9]\+\s*$/d' "$GAICONF"
+}
+
+ipv6_status() {
+  local a d
+  a="$(sysctl -n net.ipv6.conf.all.disable_ipv6 2>/dev/null || echo "N/A")"
+  d="$(sysctl -n net.ipv6.conf.default.disable_ipv6 2>/dev/null || echo "N/A")"
+  echo "all=$a default=$d"
+}
+
+interfaces=("all" "default" "lo");
 # interfaces+=$(ls /sys/class/net | grep -E '^(eth.*|lo)$')
 # for interface in "${interfaces[@]}"; do echo $interface; done;
 enable_ipv6() {
+  if have_cmd modprobe; then
+    modprobe ipv6 >/dev/null 2>&1 || true
+  fi
+
   for interface in "${interfaces[@]}"; do
     echo "net.ipv6.conf.${interface}.disable_ipv6=0 $MARK" >>$SYSCTLCONF
   done;
+
+  for f in /proc/sys/net/ipv6/conf/*/disable_ipv6; do
+    [[ -e "$f" ]] || continue
+    echo 0 > "$f" 2>/dev/null || true
+  done
+  
+  resolvectl flush-caches >/dev/null 2>&1 || true
   reload_sysctl
   restart_network
+  for f in /proc/sys/net/ipv6/conf/*/disable_ipv6; do
+    [[ -e "$f" ]] || continue
+    echo 0 > "$f" 2>/dev/null || true
+  done
+  
+  local st; st="$(ipv6_status)"
+
+  echo -e "--- IPv6 状态快照 ---"
+  echo -e "sysctl: $st"
+  echo -e "地址:"
+  ip -6 addr show 2>/dev/null || true
+  echo -e "路由:"
+  ip -6 route show 2>/dev/null || true
+  echo -e "---------------------"
 }
+
 disable_ipv6() {
   for interface in "${interfaces[@]}"; do
     echo "net.ipv6.conf.${interface}.disable_ipv6=1 $MARK" >>$SYSCTLCONF
