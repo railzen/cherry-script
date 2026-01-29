@@ -17,7 +17,6 @@ echo -e             "  \_____|_|  |_|______|_|  \_\_|  \_\ |_|   ${White}\n"
 echo -e "${LightBlue}Cherry Script $main_version (Support for Ubuntu/Debian)${White}"
 echo -e "${LightBlue}Personal use, unauthorized use prohibited!${White}"
 echo -e "${LightBlue}------- Press ${DarkYellow}ludo${LightBlue} to start script -------${White}"
-#ssh_port=$(ss -tnlp 2>/dev/null | awk '/sshd/ && /LISTEN/ {sub(".*:", "", $4); print $4; exit}'); [ -n "$ssh_port" ] && command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q '^Status: active' && (ufw status 2>/dev/null | awk -v p="$ssh_port" '$2=="ALLOW" && $1 ~ "(^|,|:|/)" p "(/tcp)?($|,|:)" {found=1} END {exit !found}' && echo -e "${DarkYellow}SSH Port $ssh_port Open${White}" || echo -e "${LightBlue}SSH Port $ssh_port Close${White}")
 ssh_port=$(ss -tnlp 2>/dev/null | awk '/sshd/ && /LISTEN/ {sub(".*:", "", $4); print $4; exit}'); [ "$ssh_port" = "22" ] && command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q '^Status: active' && (ufw status 2>/dev/null | awk '$2=="ALLOW" && $1 ~ "(^|,|:|/)(22)(/tcp)?($|,|:)" {r++; for(i=3;i<=NF;i++) if($i~/^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/||$i~/:/) ip++} END{exit !(r>0 && !(r==1 && ip==1))}' && echo -e "${DarkYellow}SSH Port 22 Open${White}" || echo -e "${LightBlue}SSH Port 22 Close${White}")
 echo "------------------------"
 echo "1. 系统信息查询"
@@ -33,7 +32,8 @@ echo "10. 系统工具 ▶ "
 echo "11. 安装Snell V4 ▶ "
 echo "12. 安装Hysteria2 ▶ "
 echo "13. SingBox脚本 ▶ "
-echo "14. 安装脚本依赖 "
+echo "14. 直接开启BBR "
+echo "15. 安装脚本依赖 "
 echo "------------------------"
 if [[ ${startup_check_new_version} == "true" ]]; then
     echo -e "99. 脚本更新 ${DarkYellow}● ${White}"
@@ -472,7 +472,7 @@ WantedBy=multi-user.target' > /etc/systemd/system/Cherry-startup.service
                       2)
                         sed -i '/net.core.default_qdisc=fq_pie/d' /etc/sysctl.conf
                         sed -i '/net.ipv4.tcp_congestion_control=bbr/d' /etc/sysctl.conf
-                        sysctl -p
+                        reload_sysctl
                         reboot
                           ;;
                       0)
@@ -3039,7 +3039,7 @@ WantedBy=multi-user.target' > /etc/systemd/system/Cherry-startup.service
 net.core.default_qdisc=fq_pie
 net.ipv4.tcp_congestion_control=bbr
 EOF
-            sysctl -p
+            reload_sysctl
             echo "XanMod内核安装并BBR3启用成功。重启后生效"
             rm -f /etc/apt/sources.list.d/xanmod-release.list
             rm -f check_x86-64_psabi.sh*
@@ -3870,6 +3870,11 @@ WantedBy=multi-user.target' > /etc/systemd/system/Cherry-startup.service
     curl -sS -O https://raw.githubusercontent.com/railzen/CherryScript/main/proxy/sing_box.sh && chmod +x sing_box.sh && ./sing_box.sh
     ;;
   14)
+    local_enable_bbr
+    break_end
+    back_main
+    ;;
+  15)
     clear
     install curl wget sudo net-tools ufw unzip
     break_end
@@ -3893,7 +3898,13 @@ done
 }
 # 从这里开始是IPV6优先级的函数部分[TAG279]
 
-reload_sysctl() { sysctl -q -p && sysctl -q --system; }
+reload_sysctl() { 
+if sysctl --system >/dev/null 2>&1; then
+    sysctl --system
+else
+    sysctl -p
+fi
+}
 restart_network() {
   echo -e "${Blue}正在重启网络服务...${White}"
   # NetworkManager
@@ -4193,8 +4204,6 @@ install_docker() {
     fi
 }
 
-
-
 iptables_open() {
     iptables -P INPUT ACCEPT
     iptables -P FORWARD ACCEPT
@@ -4207,8 +4216,6 @@ iptables_open() {
     ip6tables -F
 
 }
-
-
 
 add_swap() {
     # 获取当前系统中所有的 swap 分区
@@ -4245,7 +4252,6 @@ add_swap() {
     echo -e "虚拟内存大小已调整为${Yellow}${new_swap}${White}MB"
 }
 
-
 install_certbot() {
     install certbot
 
@@ -4281,7 +4287,6 @@ install_ssltls() {
       docker start nginx > /dev/null 2>&1
 }
 
-
 default_server_ssl() {
 install openssl
 openssl req -x509 -nodes -newkey rsa:2048 -keyout /home/web/certs/default_server.key -out /home/web/certs/default_server.crt -days 5475 -subj "/C=US/ST=State/L=City/O=Organization/OU=Organizational Unit/CN=Common Name"
@@ -4293,7 +4298,6 @@ add_yuming() {
       echo -e "先将域名解析到本机IP: ${Yellow}$ipv4_address  $ipv6_address${White}"
       read -p "请输入你解析的域名: " yuming
 }
-
 
 docker_app() {
 if docker inspect "$docker_name" &>/dev/null; then
@@ -4377,7 +4381,6 @@ fi
 
 }
 
-
 f2b_status() {
      docker restart fail2ban
      sleep 3
@@ -4438,11 +4441,6 @@ f2b_sshd() {
     fi
 }
 
-
-
-
-
-
 server_reboot() {
 
     read -p "$(echo -e "${Yellow}现在重启服务器吗？(Y/N): ${White}")" rboot
@@ -4480,7 +4478,6 @@ output_status() {
         }' /proc/net/dev)
 
 }
-
 
 install_panel() {
             if $lujing ; then
@@ -4552,8 +4549,6 @@ install_panel() {
 
 }
 
-
-
 current_timezone() {
     if grep -q 'Alpine' /etc/issue; then
        :
@@ -4562,7 +4557,6 @@ current_timezone() {
     fi
 
 }
-
 
 set_timedate() {
     shiqu="$1"
@@ -4574,8 +4568,6 @@ set_timedate() {
         timedatectl set-timezone ${shiqu}
     fi
 }
-
-
 
 linux_update() {
 
@@ -4595,7 +4587,6 @@ linux_update() {
     fi
 
 }
-
 
 linux_clean() {
     clean_debian() {
@@ -4669,12 +4660,31 @@ cat > /etc/sysctl.conf << EOF
 net.core.default_qdisc=fq_pie
 net.ipv4.tcp_congestion_control=bbr
 EOF
-sysctl -p
+reload_sysctl
 
 }
 
-set_dns() {
+local_enable_bbr(){
+    DEFAULT_TCP_BBR_FILE="/etc/sysctl.d/99-tcp-default-bbr.conf"
+    mkdir -p $DEFAULT_TCP_BBR_FILE &> /dev/null
+    cat > DEFAULT_TCP_BBR_FILE << EOF
+net.core.rmem_max = 67108848
+net.core.wmem_max = 67108848
+net.core.somaxconn = 4096
+net.ipv4.tcp_max_syn_backlog = 4096
+net.ipv4.tcp_congestion_control = bbr
+net.ipv4.tcp_rmem = 16384 16777216 536870912
+net.ipv4.tcp_wmem = 16384 16777216 536870912
+net.ipv4.tcp_adv_win_scale = -2
+net.ipv4.tcp_sack = 1
+net.ipv4.tcp_timestamps = 1
+kernel.panic = -1
+vm.swappiness = 0
+EOF
+    reload_sysctl
+}
 
+set_dns() {
 cloudflare_ipv4="1.0.0.1"
 google_ipv4="8.8.8.8"
 cloudflare_ipv6="2606:4700:4700::1111"
@@ -4727,7 +4737,6 @@ else
 fi
 
 }
-
 
 add_sshkey() {
 #ssh-keygen -t rsa -b 4096 -C "xxxx@gmail.com" -f /root/.ssh/sshkey -N ""
