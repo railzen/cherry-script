@@ -463,8 +463,7 @@ WantedBy=multi-user.target' >/etc/systemd/system/Cherry-startup.service
 
 						case $sub_choice in
 						1)
-							bbr_on
-
+							local_enable_bbr
 							;;
 						2)
 							sed -i '/net.core.default_qdisc=fq_pie/d' /etc/sysctl.conf
@@ -4217,7 +4216,6 @@ iptables_open() {
 	ip6tables -P FORWARD ACCEPT
 	ip6tables -P OUTPUT ACCEPT
 	ip6tables -F
-
 }
 
 add_swap() {
@@ -4253,56 +4251,6 @@ add_swap() {
 	fi
 
 	echo -e "虚拟内存大小已调整为${Yellow}${new_swap}${White}MB"
-}
-
-install_certbot() {
-	install certbot
-
-	# 切换到一个一致的目录（例如，家目录）
-	cd ~ || exit
-
-	# 下载并使脚本可执行
-	curl -O https://raw.githubusercontent.com/railzen/CherryScript/main/tools/auto_cert_renewal.sh
-	chmod +x auto_cert_renewal.sh
-
-	# 设置定时任务字符串
-	cron_job="0 0 * * * ~/auto_cert_renewal.sh"
-
-	# 检查是否存在相同的定时任务
-	existing_cron=$(crontab -l 2>/dev/null | grep -F "$cron_job")
-
-	# 如果不存在，则添加定时任务
-	if [ -z "$existing_cron" ]; then
-		(
-			crontab -l 2>/dev/null
-			echo "$cron_job"
-		) | crontab -
-		echo "续签任务已添加"
-	else
-		echo "续签任务已存在，无需添加"
-	fi
-}
-
-install_ssltls() {
-	docker stop nginx >/dev/null 2>&1
-	#iptables_open
-	cd ~
-	certbot certonly --standalone -d $yuming --email your@email.com --agree-tos --no-eff-email --force-renewal
-	cp /etc/letsencrypt/live/$yuming/fullchain.pem /home/web/certs/${yuming}_cert.pem
-	cp /etc/letsencrypt/live/$yuming/privkey.pem /home/web/certs/${yuming}_key.pem
-	docker start nginx >/dev/null 2>&1
-}
-
-default_server_ssl() {
-	install openssl
-	openssl req -x509 -nodes -newkey rsa:2048 -keyout /home/web/certs/default_server.key -out /home/web/certs/default_server.crt -days 5475 -subj "/C=US/ST=State/L=City/O=Organization/OU=Organizational Unit/CN=Common Name"
-
-}
-
-add_yuming() {
-	ip_address
-	echo -e "先将域名解析到本机IP: ${Yellow}$ipv4_address  $ipv6_address${White}"
-	read -p "请输入你解析的域名: " yuming
 }
 
 docker_app() {
@@ -4448,12 +4396,11 @@ f2b_sshd() {
 }
 
 server_reboot() {
-
 	read -p "$(echo -e "${Yellow}现在重启服务器吗？(Y/N): ${White}")" rboot
 	case "$rboot" in
 	[Yy])
 		echo "已重启"
-		reboot
+		sudo reboot
 		;;
 	[Nn])
 		echo "已取消"
@@ -4462,7 +4409,6 @@ server_reboot() {
 		echo "无效的选择，请输入 Y 或 N。"
 		;;
 	esac
-
 }
 
 output_status() {
@@ -4573,7 +4519,6 @@ set_timedate() {
 }
 
 linux_update() {
-
 	# Update system on Debian-based systems
 	if [ -f "/etc/debian_version" ]; then
 		apt update -y && DEBIAN_FRONTEND=noninteractive apt full-upgrade -y
@@ -4588,7 +4533,6 @@ linux_update() {
 	if [ -f "/etc/alpine-release" ]; then
 		apk update && apk upgrade
 	fi
-
 }
 
 linux_clean() {
@@ -4636,7 +4580,6 @@ linux_clean() {
 }
 
 config_new_ssh_port() {
-
 	# 备份 SSH 配置文件
 	cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak
 
@@ -4654,16 +4597,6 @@ config_new_ssh_port() {
 	echo "SSH 端口已修改为: $1,端口防火墙已放通"
 
 	sleep 1
-}
-
-bbr_on() {
-
-	cat >/etc/sysctl.conf <<EOF
-net.core.default_qdisc=fq_pie
-net.ipv4.tcp_congestion_control=bbr
-EOF
-	reload_sysctl
-
 }
 
 local_enable_bbr() {
@@ -4723,7 +4656,6 @@ set_dns() {
 }
 
 restart_ssh() {
-
 	if command -v dnf &>/dev/null; then
 		systemctl restart sshd
 	elif command -v yum &>/dev/null; then
@@ -4736,7 +4668,6 @@ restart_ssh() {
 		echo "未知的包管理器!"
 		return 1
 	fi
-
 }
 
 add_sshkey() {
