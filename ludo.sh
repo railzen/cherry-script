@@ -2405,200 +2405,185 @@ WantedBy=multi-user.target' > /etc/systemd/system/Cherry-startup.service
           local install_soft_ver
           echo "请备份数据，将为你重装系统，预计花费15分钟。"
           echo -e "${Gray}感谢MollyLau的脚本支持！${White} "
-          read -p "确定继续吗？(Y/N): " choice
+          while true; do
+            echo "------------------------"
+            echo "1. Debian 10"
+            echo "2. Debian 11"
+            echo "3. Debian 12"
+            echo "4. Debian 13"
+            echo "------------------------"
+            echo "11. Ubuntu 24.04"
+            echo "12. Ubuntu 22.04"
+            echo "13. Ubuntu 20.04"
+            echo "14. Ubuntu 18.04"
+            echo "------------------------"
+            echo "21. CentOS 9"
+            echo "22. CentOS 8"
+            echo "23. CentOS 7"
+            echo "------------------------"
+            echo "31. Alpine 3.19"
+            echo "------------------------"
+            echo "41. Windows 11"
+            echo "42. Windows 10"
+            echo "43. Windows Server 2022"
+            echo "44. Windows Server 2019"
+            echo "44. Windows Server 2016"
+            echo "------------------------"
+            read -p "请选择要重装的系统: " sys_choice
 
-          case "$choice" in
-            [Yy])
-              while true; do
-                echo "------------------------"
-                echo "1. Debian 10"
-                echo "2. Debian 11"
-                echo "3. Debian 12"
-                echo "4. Debian 13"
-                echo "------------------------"
-                echo "11. Ubuntu 24.04"
-                echo "12. Ubuntu 22.04"
-                echo "13. Ubuntu 20.04"
-                echo "14. Ubuntu 18.04"
-                echo "------------------------"
-                echo "21. CentOS 9"
-                echo "22. CentOS 8"
-                echo "23. CentOS 7"
-                echo "------------------------"
-                echo "31. Alpine 3.19"
-                echo "------------------------"
-                echo "41. Windows 11"
-                echo "42. Windows 10"
-                echo "43. Windows Server 2022"
-                echo "44. Windows Server 2019"
-                echo "44. Windows Server 2016"
-                echo "------------------------"
-                read -p "请选择要重装的系统: " sys_choice
+            case "$sys_choice" in
+              1)
+                install_system="-debian"
+                install_soft_ver="10"
+                break
+                ;;
 
-                case "$sys_choice" in
-                  1)
-                    install_system="-debian"
-                    install_soft_ver="10"
-                    break
-                    ;;
+              2)
+                install_system="-debian"
+                install_soft_ver="11"
+                break
+                ;;
 
-                  2)
-                    install_system="-debian"
-                    install_soft_ver="11"
-                    break
-                    ;;
+              3)
+                install_system="-debian"
+                install_soft_ver="12"
+                break
+                ;;
+              4)
+                install_system="-debian"
+                install_soft_ver="13"
+                break
+                ;;
 
-                  3)
-                    install_system="-debian"
-                    install_soft_ver="12"
-                    break
-                    ;;
-                  4)
-                    install_system="-debian"
-                    install_soft_ver="13"
-                    break
-                    ;;
+              11)
+                install_system="-ubuntu"
+                install_soft_ver="24.04"
+                break
+                ;;
+              12)
+                install_system="-ubuntu"
+                install_soft_ver="22.04"
+                break
+                ;;
 
-                  11)
-                    install_system="-ubuntu"
-                    install_soft_ver="24.04"
-                    break
-                    ;;
-                  12)
-                    install_system="-ubuntu"
-                    install_soft_ver="22.04"
-                    break
-                    ;;
-
-                  13)
-                    install_system="-ubuntu"
-                    install_soft_ver="20.04"
-                    break
-                    ;;
-                  14)
-                    install_system="-ubuntu"
-                    install_soft_ver="18.04"
-                    break
-                    ;;
+              13)
+                install_system="-ubuntu"
+                install_soft_ver="20.04"
+                break
+                ;;
+              14)
+                install_system="-ubuntu"
+                install_soft_ver="18.04"
+                break
+                ;;
 
 
-                  21)
-                    install_system="-centos"
-                    install_soft_ver="9"
-                    break
-                    ;;
+              21)
+                install_system="-centos"
+                install_soft_ver="9"
+                break
+                ;;
 
-                  22)
-                    install_system="-centos"
-                    install_soft_ver="8"
-                    break
-                    ;;
+              22)
+                install_system="-centos"
+                install_soft_ver="8"
+                break
+                ;;
 
-                  23)
-                    install_system="-centos"
-                    install_soft_ver="7"
-                    break
-                    ;;
+              23)
+                install_system="-centos"
+                install_soft_ver="7"
+                break
+                ;;
 
-                  31)
-                    install_system="-alpine"
-                    install_soft_ver=""
-                    break
-                    ;;
+              31)
+                install_system="-alpine"
+                install_soft_ver=""
+                break
+                ;;
 
-                  41)
-                    install_system="-windows"
-                    install_soft_ver="11"
-                    break
-                    ;;
+              41)
+                install_system="-windows"
+                install_soft_ver="11"
+                break
+                ;;
 
-                  42)
-                    install_system="-windows"
-                    install_soft_ver="10"
-                    break
-                    ;;
+              42)
+                install_system="-windows"
+                install_soft_ver="10"
+                break
+                ;;
 
-                  43)
-                    install_system="-windows"
-                    install_soft_ver="2022"
-                    break
-                    ;;
+              43)
+                install_system="-windows"
+                install_soft_ver="2022"
+                break
+                ;;
 
-                  44)
-                    install_system="-windows"
-                    install_soft_ver="2019"
-                    break
-                    ;;
+              44)
+                install_system="-windows"
+                install_soft_ver="2019"
+                break
+                ;;
 
-                  45)
-                    install_system="-windows"
-                    install_soft_ver="2016"
-                    break
-                    ;;
+              45)
+                install_system="-windows"
+                install_soft_ver="2016"
+                break
+                ;;
 
-                  *)
-                    echo "无效的选择，请重新输入。"
-                    ;;
+              *)
+                echo "无效的选择，请重新输入。"
+                ;;
+            esac
+          done
+
+            if [[ "$install_system" == "-debian" ]]; then
+                while true; do
+                    read -p "请输入密码（至少8位字符）: " password
+                    if [ ${#password} -ge 8 ]; then
+                        install_passwd="$password"
+                        break
+                    else
+                        echo "密码长度不足8位，请重新输入！"
+                    fi
+                done
+            else
+                install_passwd='LeitboGi0ro'
+            fi
+
+            if [[ "$install_system" == "-windows" ]]; then
+                echo -e "重装后初始用户名: ${Yellow}Administrator${White}  初始密码: ${Yellow}Teddysun.com${White}  初始端口: ${Yellow}3389${White}"
+            else
+                echo -e "重装后初始用户名: ${Yellow}root${White}  初始密码: ${Yellow}${install_passwd}${White}  初始端口: ${Yellow}22${White}"
+            fi
+
+            while true; do
+                read -p "请确认操作 (y/Y): " user_input
+                case $user_input in
+                    [yY])
+                        echo "操作已确认，继续执行..."
+                        break
+                        ;;
+                    *)
+                        echo "输入无效，请输入 'y' 或 'Y' 以确认。"
+                        ;;
                 esac
-              done
+            done
 
-				if [[ "$install_system" == "-debian" ]]; then
-					while true; do
-						echo -n "请输入密码（至少8位字符）: "
-						read -s password
-						echo
-						
-						if [ ${#password} -ge 8 ]; then
-							install_passwd="$password"
-							break
-						else
-							echo "密码长度不足8位，请重新输入！"
-						fi
-					done
-				else
-					install_passwd='LeitboGi0ro'
-				fi
-
-				if [[ "$install_system" == "-windows" ]]; then
-					echo -e "重装后初始用户名: ${Yellow}Administrator${White}  初始密码: ${Yellow}Teddysun.com${White}  初始端口: ${Yellow}3389${White}"
-				else
-					echo -e "重装后初始用户名: ${Yellow}root${White}  初始密码: ${Yellow}${install_passwd}${White}  初始端口: ${Yellow}22${White}"
-				fi
-
-				while true; do
-					read -p "请确认操作 (y/Y): " user_input
-					case $user_input in
-						[yY])
-							echo "操作已确认，继续执行..."
-							break
-							;;
-						*)
-							echo "输入无效，请输入 'y' 或 'Y' 以确认。"
-							;;
-					esac
-				done
-
-				install wget
-				wget --no-check-certificate -qO InstallNET.sh 'https://raw.githubusercontent.com/leitbogioro/Tools/master/Linux_reinstall/InstallNET.sh' && chmod a+x InstallNET.sh
-              
-              	if [[ "$install_system" == "-windows" ]]; then
-					bash InstallNET.sh "${install_system}" "${install_soft_ver}" -lang "cn" || true
-				elif [[ "$install_system" == "-debian" ]] ;then
-					bash InstallNET.sh "${install_system}" "${install_soft_ver}" -pwd "${install_passwd}" || true
-				else
-					bash InstallNET.sh "${install_system}" "${install_soft_ver}" || true
-				fi
-				reboot
-                exit	
-              ;;
-            [Nn])
-              echo "已取消"
-              ;;
-            *)
-              echo "无效的选择，请输入 Y 或 N。"
-              ;;
-          esac
-              ;;
+            install wget
+            wget --no-check-certificate -qO InstallNET.sh 'https://raw.githubusercontent.com/leitbogioro/Tools/master/Linux_reinstall/InstallNET.sh' && chmod a+x InstallNET.sh
+          
+            if [[ "$install_system" == "-windows" ]]; then
+                bash InstallNET.sh "${install_system}" "${install_soft_ver}" -lang "cn" || true
+            elif [[ "$install_system" == "-debian" ]] ;then
+                bash InstallNET.sh "${install_system}" "${install_soft_ver}" -pwd "${install_passwd}" || true
+            else
+                bash InstallNET.sh "${install_system}" "${install_soft_ver}" || true
+            fi
+            reboot
+            exit	
+          ;;
 
           9)
             root_use
@@ -3887,10 +3872,11 @@ WantedBy=multi-user.target' > /etc/systemd/system/Cherry-startup.service
 		back_main
     fi
 
-	read -p "已经启用本脚本设置的BBR，是否恢复初始设置？(y/N): " choice
+	read -p "已经启用本脚本设置的BBR参数，是否还原修改？(y/N): " choice
 	case "$choice" in
 		[yY])
-			rm "$DEFAULT_TCP_BBR_FILE"
+			rm -f "$DEFAULT_TCP_BBR_FILE"
+			reload_sysctl
 			break_end
 			back_main
 			;;
