@@ -2559,7 +2559,7 @@ WantedBy=multi-user.target' > /etc/systemd/system/Cherry-startup.service
             fi
 
             while true; do
-                read -p "请确认操作 (y/Y): " user_input
+                read -p "请确认操作 (N/y): " user_input
                 case $user_input in
                     [yY])
                         echo "操作已确认，继续执行..."
@@ -4678,8 +4678,7 @@ reload_sysctl
 }
 
 local_enable_bbr(){
-    touch $DEFAULT_TCP_BBR_FILE &> /dev/null
-    cat > DEFAULT_TCP_BBR_FILE << EOF
+    cat > $DEFAULT_TCP_BBR_FILE << EOF
 net.core.rmem_max = 67108848
 net.core.wmem_max = 67108848
 net.core.somaxconn = 4096
