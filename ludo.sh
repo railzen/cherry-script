@@ -2323,7 +2323,7 @@ WantedBy=multi-user.target' > /etc/systemd/system/Cherry-startup.service
                 current_port=$(grep -E '^ *Port [0-9]+' /etc/ssh/sshd_config | awk '{print $2}')
 
                 # 打印当前的 SSH 端口号
-                echo -e "当前的 SSH 端口号是:  ${huang}$current_port ${bai}"
+                echo -e "当前的 SSH 端口号是:  ${Yellow}$current_port ${White}"
                 echo "------------------------"              
                 echo "端口号范围 1-65535（输入 0 退出）"
                 while true; do
