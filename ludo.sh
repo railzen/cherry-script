@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #cp -f ./ludo.sh ${work_path}/ludo.sh > /dev/null 2>&1
 
-main_version="V1.1.35 Build260129"
+main_version="V1.1.36 Build260130"
 work_path="/opt/CherryScript"
 
 main_menu_start() {
@@ -2208,7 +2208,7 @@ WantedBy=multi-user.target' > /etc/systemd/system/Cherry-startup.service
       echo "5. 修改SSH连接端口"
       echo "6. 开放所有端口"
       echo "7. 优化DNS地址"
-      echo "8. 一键重装系统"
+      echo "8. 一键DD重装系统"
       echo "9. 禁用ROOT账户创建新账户"
       echo "10. 切换优先ipv4/ipv6"
       echo "11. 查看端口占用状态"
@@ -2403,22 +2403,10 @@ WantedBy=multi-user.target' > /etc/systemd/system/Cherry-startup.service
             done
             ;;
           8)
-
-          dd_xitong_2() {
-            echo -e "任意键继续，重装后初始用户名: ${Yellow}root${White}  初始密码: ${Yellow}LeitboGi0ro${White}  初始端口: ${Yellow}22${White}"
-            read -n 1 -s -r -p ""
-            install wget
-            wget --no-check-certificate -qO InstallNET.sh 'https://raw.githubusercontent.com/leitbogioro/Tools/master/Linux_reinstall/InstallNET.sh' && chmod a+x InstallNET.sh
-          }
-
-          dd_xitong_3() {
-            echo -e "任意键继续，重装后初始用户名: ${Yellow}Administrator${White}  初始密码: ${Yellow}Teddysun.com${White}  初始端口: ${Yellow}3389${White}"
-            read -n 1 -s -r -p ""
-            install wget
-            wget --no-check-certificate -qO InstallNET.sh 'https://raw.githubusercontent.com/leitbogioro/Tools/master/Linux_reinstall/InstallNET.sh' && chmod a+x InstallNET.sh
-          }
-
           root_use
+          local install_system
+          local install_passwd
+          local install_soft_ver
           echo "请备份数据，将为你重装系统，预计花费15分钟。"
           echo -e "${Gray}感谢MollyLau的脚本支持！${White} "
           read -p "确定继续吗？(Y/N): " choice
@@ -2426,12 +2414,11 @@ WantedBy=multi-user.target' > /etc/systemd/system/Cherry-startup.service
           case "$choice" in
             [Yy])
               while true; do
-
                 echo "------------------------"
-                echo "1. Debian 12"
+                echo "1. Debian 10"
                 echo "2. Debian 11"
-                echo "3. Debian 10"
-                echo "4. Debian 9"
+                echo "3. Debian 12"
+                echo "4. Debian 13"
                 echo "------------------------"
                 echo "11. Ubuntu 24.04"
                 echo "12. Ubuntu 22.04"
@@ -2454,129 +2441,142 @@ WantedBy=multi-user.target' > /etc/systemd/system/Cherry-startup.service
 
                 case "$sys_choice" in
                   1)
-                    dd_xitong_2
-                    bash InstallNET.sh -debian 12
-                    reboot
-                    exit
+                    install_system="-debian"
+                    install_soft_ver="10"
                     ;;
 
                   2)
-                    dd_xitong_2
-                    bash InstallNET.sh -debian 11
-                    reboot
-                    exit
+                    install_system="-debian"
+                    install_soft_ver="11"
                     ;;
 
                   3)
-                    dd_xitong_2
-                    bash InstallNET.sh -debian 10
-                    reboot
-                    exit
+                    install_system="-debian"
+                    install_soft_ver="12"
                     ;;
                   4)
-                    dd_xitong_2
-                    bash InstallNET.sh -debian 9
-                    reboot
-                    exit
+                    install_system="-debian"
+                    install_soft_ver="13"
                     ;;
 
                   11)
-                    dd_xitong_2
-                    bash InstallNET.sh -ubuntu 24.04
-                    reboot
-                    exit
+                    install_system="-ubuntu"
+                    install_soft_ver="24.04"
                     ;;
                   12)
-                    dd_xitong_2
-                    bash InstallNET.sh -ubuntu 22.04
-                    reboot
-                    exit
+                    install_system="-ubuntu"
+                    install_soft_ver="22.04"
                     ;;
 
                   13)
-                    dd_xitong_2
-                    bash InstallNET.sh -ubuntu 20.04
-                    reboot
-                    exit
+                    install_system="-ubuntu"
+                    install_soft_ver="20.04"
                     ;;
                   14)
-                    dd_xitong_2
-                    bash InstallNET.sh -ubuntu 18.04
-                    reboot
-                    exit
+                    install_system="-ubuntu"
+                    install_soft_ver="18.04"
                     ;;
 
 
                   21)
-                    dd_xitong_2
-                    bash InstallNET.sh -centos 9
-                    reboot
-                    exit
+                    install_system="-centos"
+                    install_soft_ver="9"
                     ;;
 
-
                   22)
-                    dd_xitong_2
-                    bash InstallNET.sh -centos 8
-                    reboot
-                    exit
+                    install_system="-centos"
+                    install_soft_ver="8"
                     ;;
 
                   23)
-                    dd_xitong_2
-                    bash InstallNET.sh -centos 7
-                    reboot
-                    exit
+                    install_system="-centos"
+                    install_soft_ver="7"
                     ;;
 
                   31)
-                    dd_xitong_2
-                    bash InstallNET.sh -alpine
-                    reboot
-                    exit
+                    install_system="-alpine"
+                    install_soft_ver=""
                     ;;
 
                   41)
-                    dd_xitong_3
-                    bash InstallNET.sh -windows 11 -lang "cn"
-                    reboot
-                    exit
+                    install_system="-windows"
+                    install_soft_ver="11"
                     ;;
 
                   42)
-                    dd_xitong_3
-                    bash InstallNET.sh -windows 10 -lang "cn"
-                    reboot
-                    exit
+                    install_system="-windows"
+                    install_soft_ver="10"
                     ;;
 
                   43)
-                    dd_xitong_3
-                    bash InstallNET.sh -windows 2022 -lang "cn"
-                    reboot
-                    exit
+                    install_system="-windows"
+                    install_soft_ver="2022"
                     ;;
 
                   44)
-                    dd_xitong_3
-                    bash InstallNET.sh -windows 2019 -lang "cn"
-                    reboot
-                    exit
+                    install_system="-windows"
+                    install_soft_ver="2019"
                     ;;
 
                   45)
-                    dd_xitong_3
-                    bash InstallNET.sh -windows 2016 -lang "cn"
-                    reboot
-                    exit
+                    install_system="-windows"
+                    install_soft_ver="2016"
                     ;;
-
 
                   *)
                     echo "无效的选择，请重新输入。"
                     ;;
                 esac
               done
+
+				if [[ "$install_system" == "-debian" ]]; then
+					while true; do
+						echo -n "请输入密码（至少8位字符）: "
+						read -s password
+						echo
+						
+						if [ ${#password} -ge 8 ]; then
+							install_passwd="$password"
+							break
+						else
+							echo "密码长度不足8位，请重新输入！"
+						fi
+					done
+				else
+					install_passwd='LeitboGi0ro'
+				fi
+
+				if [[ "$install_system" == "-windows" ]]; then
+					echo -e "重装后初始用户名: ${Yellow}Administrator${White}  初始密码: ${Yellow}Teddysun.com${White}  初始端口: ${Yellow}3389${White}"
+				else
+					echo -e "重装后初始用户名: ${Yellow}root${White}  初始密码: ${Yellow}${install_passwd}${White}  初始端口: ${Yellow}22${White}"
+				fi
+
+				while true; do
+					read -p "请确认操作 (y/Y): " user_input
+					case $user_input in
+						[yY])
+							echo "操作已确认，继续执行..."
+							break
+							;;
+						*)
+							echo "输入无效，请输入 'y' 或 'Y' 以确认。"
+							;;
+					esac
+				done
+
+				install wget
+				wget --no-check-certificate -qO InstallNET.sh 'https://raw.githubusercontent.com/leitbogioro/Tools/master/Linux_reinstall/InstallNET.sh' && chmod a+x InstallNET.sh
+              
+              	if [[ "$install_system" == "-windows" ]]; then
+					bash InstallNET.sh "${install_system}" "${install_soft_ver}" -lang "cn" || true
+				elif [[ "$install_system" == "-debian" ]] ;then
+					bash InstallNET.sh "${install_system}" "${install_soft_ver}" -pwd "${install_passwd}" || true
+				else
+					bash InstallNET.sh "${install_system}" "${install_soft_ver}" || true
+				fi
+				reboot
+                exit	
               ;;
             [Nn])
               echo "已取消"
@@ -3867,9 +3867,25 @@ WantedBy=multi-user.target' > /etc/systemd/system/Cherry-startup.service
     curl -sS -O https://raw.githubusercontent.com/railzen/CherryScript/main/proxy/sing_box.sh && chmod +x sing_box.sh && ./sing_box.sh
     ;;
   14)
-    local_enable_bbr
-    break_end
-    back_main
+    if [[ ! -e "$DEFAULT_TCP_BBR_FILE" ]]; then
+        local_enable_bbr
+        break_end
+		back_main
+    fi
+
+	read -p "已经启用本脚本设置的BBR，是否恢复初始设置？(y/N): " choice
+	case "$choice" in
+		[yY])
+			rm "$DEFAULT_TCP_BBR_FILE"
+			break_end
+			back_main
+			;;
+		*)
+			echo "取消操作。"
+			break_end
+			back_main
+			;;
+	esac
     ;;
   15)
     clear
@@ -4662,8 +4678,7 @@ reload_sysctl
 }
 
 local_enable_bbr(){
-    DEFAULT_TCP_BBR_FILE="/etc/sysctl.d/99-tcp-default-bbr.conf"
-    mkdir -p $DEFAULT_TCP_BBR_FILE &> /dev/null
+    touch $DEFAULT_TCP_BBR_FILE &> /dev/null
     cat > DEFAULT_TCP_BBR_FILE << EOF
 net.core.rmem_max = 67108848
 net.core.wmem_max = 67108848
@@ -4871,6 +4886,7 @@ ssh_port_is_open() {
 chech_dependance() { 
     # 初始化变量
     Yellow='\033[33m'; White='\033[0m'; Green='\033[0;32m'; Blue='\033[0;34m'; Red='\033[31m'; Gray='\e[37m'; LightBlue='\033[96m'; DarkYellow='\033[93m'
+    DEFAULT_TCP_BBR_FILE="/etc/sysctl.d/99-tcp-default-bbr.conf"
     SYSCTLCONF=/etc/sysctl.conf
     GAICONF=/etc/gai.conf
     MARK="# CherryModified"
