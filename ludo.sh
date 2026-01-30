@@ -3920,7 +3920,7 @@ docker_mng_menu(){
 }
 
 reload_sysctl() { 
-if sysctl --system >/dev/null 2>&1; then
+if sysctl --system ; then
     sysctl --system
 else
     sysctl -p
