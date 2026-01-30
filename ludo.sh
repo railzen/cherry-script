@@ -3869,6 +3869,7 @@ WantedBy=multi-user.target' > /etc/systemd/system/Cherry-startup.service
   14)
     if [[ ! -e "$DEFAULT_TCP_BBR_FILE" ]]; then
         local_enable_bbr
+        echo -e "${Green}Your bbr enable Success!${White}"
         break_end
 		back_main
     fi
@@ -4770,6 +4771,7 @@ fi
 mkdir -p ~/.ssh
 if grep -Fxq "$sshPublicKey" ~/.ssh/authorized_keys; then
     echo "公钥已存在，跳过添加"
+    return
 else
 	echo ${sshPublicKey} >> ~/.ssh/authorized_keys
 	chmod 600 ~/.ssh/authorized_keys
@@ -4791,7 +4793,9 @@ if [ -z "$1" ]; then
 fi
 restart_ssh
 echo -e "${Green}ROOT私钥登录已开启，已关闭ROOT密码登录，重连将会生效${White}"
-
+if [ -z "$1" ]; then
+    sleep 2
+fi
 }
 
 
@@ -4940,7 +4944,6 @@ elif [[ ! $# = 0 && $1 = "edit" ]];then
     exit 0
 elif [[ ! $# = 0 && $1 = "sshkey" && -n "$2" ]];then
     add_sshkey "$2"
-    sleep 1
 fi
 
 # 存在文件，检查依赖及展示菜单
