@@ -2193,6 +2193,76 @@ WantedBy=multi-user.target' > /etc/systemd/system/Cherry-startup.service
 
   10)
     while true; do
+        system_tools_menu
+    done
+    ;;
+
+  11)
+    #询问用户是否要安装Snell
+        #read -p "是否要进入Snell V4安装脚本？(y/n): " choice
+        #choice=y
+        #if [ "$choice" == "y" ]; then
+    clear
+    bash -c "$(curl -sL https://raw.githubusercontent.com/railzen/CherryScript/main/snell/snell.sh)"
+    ;;
+
+  12)
+    clear
+    curl -sS -O https://raw.githubusercontent.com/railzen/CherryScript/main/proxy/setup_hysteria.sh && chmod +x setup_hysteria.sh && ./setup_hysteria.sh
+    ;;
+
+  13)
+    clear
+    curl -sS -O https://raw.githubusercontent.com/railzen/CherryScript/main/proxy/sing_box.sh && chmod +x sing_box.sh && ./sing_box.sh
+    ;;
+  14)
+    if [[ ! -e "$DEFAULT_TCP_BBR_FILE" ]]; then
+        local_enable_bbr
+        echo -e "${Green}Your bbr enable Success!${White}"
+        break_end
+		back_main
+    fi
+
+	read -p "已经启用本脚本设置的BBR参数，是否还原修改？(y/N): " choice
+	case "$choice" in
+		[yY])
+			rm -f "$DEFAULT_TCP_BBR_FILE"
+			reload_sysctl
+			break_end
+			back_main
+			;;
+		*)
+			echo "取消操作。"
+			break_end
+			back_main
+			;;
+	esac
+    ;;
+  15)
+    clear
+    install curl wget sudo net-tools ufw unzip
+    break_end
+    ;;
+
+ 99)
+    Update_Shell
+    ;;
+
+  0)
+    clear
+    exit
+    ;;
+
+  *)
+    echo "无效的输入!"
+    ;;
+esac
+    break_end
+done
+}
+# 从这里开始是IPV6优先级的函数部分[TAG279]
+
+system_tools_menu(){
       clear
       echo "▶ 系统工具"
       echo "------------------------"
@@ -3842,75 +3912,7 @@ WantedBy=multi-user.target' > /etc/systemd/system/Cherry-startup.service
               
       esac
       break_end
-
-    done
-    ;;
-
-  11)
-    #询问用户是否要安装Snell
-        #read -p "是否要进入Snell V4安装脚本？(y/n): " choice
-        #choice=y
-        #if [ "$choice" == "y" ]; then
-    clear
-    bash -c "$(curl -sL https://raw.githubusercontent.com/railzen/CherryScript/main/snell/snell.sh)"
-    ;;
-
-  12)
-    clear
-    curl -sS -O https://raw.githubusercontent.com/railzen/CherryScript/main/proxy/setup_hysteria.sh && chmod +x setup_hysteria.sh && ./setup_hysteria.sh
-    ;;
-
-  13)
-    clear
-    curl -sS -O https://raw.githubusercontent.com/railzen/CherryScript/main/proxy/sing_box.sh && chmod +x sing_box.sh && ./sing_box.sh
-    ;;
-  14)
-    if [[ ! -e "$DEFAULT_TCP_BBR_FILE" ]]; then
-        local_enable_bbr
-        echo -e "${Green}Your bbr enable Success!${White}"
-        break_end
-		back_main
-    fi
-
-	read -p "已经启用本脚本设置的BBR参数，是否还原修改？(y/N): " choice
-	case "$choice" in
-		[yY])
-			rm -f "$DEFAULT_TCP_BBR_FILE"
-			reload_sysctl
-			break_end
-			back_main
-			;;
-		*)
-			echo "取消操作。"
-			break_end
-			back_main
-			;;
-	esac
-    ;;
-  15)
-    clear
-    install curl wget sudo net-tools ufw unzip
-    break_end
-    ;;
-
- 99)
-    Update_Shell
-    ;;
-
-  0)
-    clear
-    exit
-    ;;
-
-  *)
-    echo "无效的输入!"
-    ;;
-esac
-    break_end
-done
 }
-# 从这里开始是IPV6优先级的函数部分[TAG279]
-
 reload_sysctl() { 
 if sysctl --system >/dev/null 2>&1; then
     sysctl --system
