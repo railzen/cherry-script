@@ -17,11 +17,7 @@ echo -e             "  \_____|_|  |_|______|_|  \_\_|  \_\ |_|   ${White}\n"
 echo -e "${LightBlue}Cherry Script $main_version (Support for Ubuntu/Debian)${White}"
 echo -e "${LightBlue}Personal use, unauthorized use prohibited!${White}"
 echo -e "${LightBlue}------- Press ${DarkYellow}ludo${LightBlue} to start script -------${White}"
-if ssh_port_is_open; then
-    echo -e "${DarkYellow}SSH Port $global_ssh_port Open${White}"
-else
-    echo -e "${LightBlue}SSH Port $global_ssh_port Close${White}"
-fi
+ssh_port=$(ss -tnlp 2>/dev/null | awk '/sshd/ && /LISTEN/ {sub(".*:", "", $4); print $4; exit}'); [ "$ssh_port" = "22" ] && command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q '^Status: active' && (ufw status 2>/dev/null | awk '$2=="ALLOW" && $1 ~ "(^|,|:|/)(22)(/tcp)?($|,|:)" {r++; for(i=3;i<=NF;i++) if($i~/^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/||$i~/:/) ip++} END{exit !(r>0 && !(r==1 && ip==1))}' && echo -e "${DarkYellow}SSH Port 22 Open${White}" || echo -e "${LightBlue}SSH Port 22 Close${White}")
 echo "------------------------"
 echo "1. 系统信息查询"
 echo "2. 系统更新"
