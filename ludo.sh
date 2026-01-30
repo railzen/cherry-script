@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #cp -f ./ludo.sh ${work_path}/ludo.sh > /dev/null 2>&1
 
-main_version="V1.1.36 Build260130"
+main_version="V1.1.37 Build260130"
 work_path="/opt/CherryScript"
 
 main_menu_start() {
@@ -2439,84 +2439,101 @@ WantedBy=multi-user.target' > /etc/systemd/system/Cherry-startup.service
                   1)
                     install_system="-debian"
                     install_soft_ver="10"
+                    break
                     ;;
 
                   2)
                     install_system="-debian"
                     install_soft_ver="11"
+                    break
                     ;;
 
                   3)
                     install_system="-debian"
                     install_soft_ver="12"
+                    break
                     ;;
                   4)
                     install_system="-debian"
                     install_soft_ver="13"
+                    break
                     ;;
 
                   11)
                     install_system="-ubuntu"
                     install_soft_ver="24.04"
+                    break
                     ;;
                   12)
                     install_system="-ubuntu"
                     install_soft_ver="22.04"
+                    break
                     ;;
 
                   13)
                     install_system="-ubuntu"
                     install_soft_ver="20.04"
+                    break
                     ;;
                   14)
                     install_system="-ubuntu"
                     install_soft_ver="18.04"
+                    break
                     ;;
 
 
                   21)
                     install_system="-centos"
                     install_soft_ver="9"
+                    break
                     ;;
 
                   22)
                     install_system="-centos"
                     install_soft_ver="8"
+                    break
                     ;;
 
                   23)
                     install_system="-centos"
                     install_soft_ver="7"
+                    break
                     ;;
 
                   31)
                     install_system="-alpine"
                     install_soft_ver=""
+                    break
                     ;;
 
                   41)
                     install_system="-windows"
                     install_soft_ver="11"
+                    break
                     ;;
 
                   42)
                     install_system="-windows"
                     install_soft_ver="10"
+                    break
                     ;;
 
                   43)
                     install_system="-windows"
                     install_soft_ver="2022"
+                    break
                     ;;
 
                   44)
                     install_system="-windows"
                     install_soft_ver="2019"
+                    break
                     ;;
 
                   45)
                     install_system="-windows"
                     install_soft_ver="2016"
+                    break
                     ;;
 
                   *)
