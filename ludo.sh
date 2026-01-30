@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-#cp -f ./ludo.sh ${work_path}/ludo.sh > /dev/null 2>&1
-
 main_version="V1.1.37 Build260130"
 work_path="/opt/CherryScript"
 
@@ -4885,7 +4883,7 @@ chech_dependance() {
 	Gray='\e[37m'
 	LightBlue='\033[96m'
 	DarkYellow='\033[93m'
-	DEFAULT_TCP_BBR_FILE="/etc/sysctl.d/99-tcp-default-bbr.conf"
+	DEFAULT_TCP_BBR_FILE="/etc/sysctl.d/99-cherryscript-tcp-bbr.conf"
 	SYSCTLCONF=/etc/sysctl.conf
 	GAICONF=/etc/gai.conf
 	MARK="# CherryModified"
@@ -4933,7 +4931,6 @@ elif [[ ! $# = 0 && $1 = "restart" ]]; then
 elif [[ ! $# = 0 && $1 = "edit" ]]; then
 	# 快速重启所有本脚本创建的服务，用于更新配置
 	vi $work_path/config/start.sh
-	#ls /etc/systemd/system | grep Cherry- | xargs systemctl restart
 	exit 0
 elif [[ ! $# = 0 && $1 = "sshkey" && -n "$2" ]]; then
 	add_sshkey "$2"
