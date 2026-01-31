@@ -33,12 +33,6 @@ is_sh_dir=$is_core_dir/sh
 is_sh_repo=$author/CherryScript/main/proxy
 is_pkg="wget tar"
 is_config_json=$is_core_dir/config.json
-is_caddy_bin=/usr/local/bin/caddy
-is_caddy_dir=/etc/caddy
-is_caddy_repo=caddyserver/caddy
-is_caddyfile=$is_caddy_dir/Caddyfile
-is_caddy_conf=$is_caddy_dir/$author
-is_caddy_service=$(systemctl list-units --full -all | grep caddy.service)
 is_http_port=80
 is_https_port=443
 
@@ -451,10 +445,6 @@ create() {
             # config.json
             create config.json
         fi
-        # caddy auto tls
-        [[ $is_caddy && $host && ! $is_no_auto_tls ]] && {
-            create caddy $net
-        }
         # restart core
         manage restart &
         ;;
@@ -467,15 +457,6 @@ create() {
         msg
         jq <<<$is_new_json
         msg
-        ;;
-    caddy)
-        [[ $is_install_caddy ]] && caddy_config new
-        [[ ! $(grep "$is_caddy_conf" $is_caddyfile) ]] && {
-            msg "import $is_caddy_conf/*.conf" >>$is_caddyfile
-        }
-        [[ ! -d $is_caddy_conf ]] && mkdir -p $is_caddy_conf
-        caddy_config $2
-        manage restart caddy &
         ;;
     config.json)
         is_log='log:{output:"/var/log/'$is_core'/access.log",level:"info","timestamp":true}'
@@ -584,22 +565,15 @@ change() {
     1)
         # new port
         is_new_port=$3
-        [[ $host && ! $is_caddy ]] && err "($is_config_file) 不支持更改端口, 因为没啥意义."
+        [[ $host ]] && err "($is_config_file) 不支持更改端口, 因为没啥意义."
         if [[ $is_new_port && ! $is_auto ]]; then
             [[ ! $(is_test port $is_new_port) ]] && err "请输入正确的端口, 可选(1-65535)"
             [[ $is_new_port != 443 && $(is_test port_used $is_new_port) ]] && err "无法使用 ($is_new_port) 端口"
         fi
         [[ $is_auto ]] && get_port && is_new_port=$tmp_port
         [[ ! $is_new_port ]] && ask string is_new_port "请输入新端口:"
-        if [[ $is_caddy && $host ]]; then
-            net=$is_old_net
-            is_https_port=$is_new_port
-            caddy_config $net
-            manage restart caddy &
-            info
-        else
-            add $net $is_new_port
-        fi
+        add $net $is_new_port
+
         ;;
     2)
         # new host
@@ -728,16 +702,6 @@ change() {
         add $net
         ;;
     11)
-        # new proxy site
-        is_new_proxy_site=$3
-        [[ ! $is_caddy && ! $host ]] && {
-            err "($is_config_file) 不支持更改伪装网站."
-        }
-        [[ ! -f $is_caddy_conf/${host}.conf.add ]] && err "无法配置伪装网站."
-        [[ ! $is_new_proxy_site ]] && ask string is_new_proxy_site "请输入新的伪装网站 (例如 example.com):"
-        proxy_site=$(sed 's#^.*//##;s#/$##' <<<$is_new_proxy_site)
-        caddy_config proxy
-        manage restart caddy &
         msg "\n已更新伪装网站为: $(_green $proxy_site) \n"
         ;;
     12)
@@ -762,10 +726,6 @@ get_latest_version() {
         curl -sSO "https://raw.githubusercontent.com/railzen/CherryScript/main/proxy/sing_box.sh"
         echo "已更新到最新版本"
         return 0
-        ;;
-    caddy)
-        name="Caddy"
-        url="https://api.github.com/repos/$is_caddy_repo/releases/latest?v=$RANDOM"
         ;;
     esac
     latest_ver=$(_wget -qO- $url | grep tag_name | egrep -o 'v([0-9.]+)')
@@ -801,16 +761,6 @@ download() {
         tar zxf $tmpfile -C $is_sh_dir
         chmod +x $is_sh_bin ${is_sh_bin/$is_core/sb}
         ;;
-    caddy)
-        name="Caddy"
-        tmpfile=$tmpdir/caddy.tar.gz
-        # https://github.com/caddyserver/caddy/releases/download/v2.6.4/caddy_2.6.4_linux_amd64.tar.gz
-        link="https://github.com/${is_caddy_repo}/releases/download/${latest_ver}/caddy_${latest_ver:1}_linux_${is_arch}.tar.gz"
-        download_file
-        tar zxf $tmpfile -C $tmpdir
-        cp -f $tmpdir/caddy $is_caddy_bin
-        chmod +x $is_caddy_bin
-        ;;
     esac
     rm -rf $tmpdir
     unset latest_ver
@@ -838,18 +788,6 @@ del() {
         rm -rf $is_conf_dir/"$is_config_file"
         [[ ! $is_new_json ]] && manage restart &
         [[ ! $is_no_del_msg ]] && _green "\n已删除: $is_config_file\n"
-
-        [[ $is_caddy ]] && {
-            is_del_host=$host
-            [[ $is_change ]] && {
-                [[ ! $old_host ]] && return # no host exist or not set new host;
-                is_del_host=$old_host
-            }
-            [[ $is_del_host && $host != $old_host ]] && {
-                rm -rf $is_caddy_conf/$is_del_host.conf $is_caddy_conf/$is_del_host.conf.add
-                [[ ! $is_new_json ]] && manage restart caddy &
-            }
-        }
     fi
     if [[ ! $(ls $is_conf_dir | grep .json) && ! $is_change ]]; then
         warn "当前配置目录为空! 因为你刚刚删除了最后一个配置文件."
@@ -861,12 +799,8 @@ del() {
 
 # uninstall
 uninstall() {
-    if [[ $is_caddy ]]; then
-        is_tmp_list=("卸载 $is_core_name" "卸载 ${is_core_name} & Caddy")
-        ask list is_do_uninstall
-    else
-        ask string y "是否卸载 ${is_core_name}? [N/y]:"
-    fi
+
+    ask string y "是否卸载 ${is_core_name}? [N/y]:"
     manage stop &>/dev/null
     manage disable &>/dev/null
     rm -rf $is_core_dir $is_log_dir $is_sh_bin ${is_sh_bin/$is_core/sb} /lib/systemd/system/$is_core.service
@@ -879,12 +813,6 @@ uninstall() {
     #结束卸载旧版脚本
 
     sed -i "/alias $is_core=/d" /root/.bashrc
-    # uninstall caddy; 2 is ask result
-    if [[ $REPLY == '2' ]]; then
-        manage stop caddy &>/dev/null
-        manage disable caddy &>/dev/null
-        rm -rf $is_caddy_dir $is_caddy_bin /lib/systemd/system/caddy.service
-    fi
     [[ $is_install_sh ]] && return # reinstall
     _green "\n卸载完成!"
 }
@@ -912,18 +840,11 @@ manage() {
         is_do_msg=$1
         ;;
     esac
-    case $2 in
-    caddy)
-        is_do_name=$2
-        is_run_bin=$is_caddy_bin
-        is_do_name_msg=Caddy
-        ;;
-    *)
-        is_do_name=$is_core
-        is_run_bin=$is_core_bin
-        is_do_name_msg=$is_core_name
-        ;;
-    esac
+
+    is_do_name=$is_core
+    is_run_bin=$is_core_bin
+    is_do_name_msg=$is_core_name
+
     systemctl $is_do $is_do_name
     [[ $is_test_run && ! $is_new_install ]] && {
         sleep 2
@@ -1130,7 +1051,7 @@ add() {
     fi
 
     if [[ $is_use_tls ]]; then
-        if [[ ! $is_no_auto_tls && ! $is_caddy && ! $is_gen && ! $is_dont_test_host ]]; then
+        if [[ ! $is_no_auto_tls && ! $is_gen && ! $is_dont_test_host ]]; then
             # test auto tls
             [[ $(is_test port_used 80) || $(is_test port_used 443) ]] && {
                 get_port
@@ -1138,11 +1059,9 @@ add() {
                 get_port
                 is_https_port=$tmp_port
                 warn "端口 (80 或 443) 已经被占用, 你也可以考虑使用 no-auto-tls"
-                msg "\n Caddy 将使用非标准端口实现自动配置 TLS, HTTP:$is_http_port HTTPS:$is_https_port\n"
                 msg "请确定是否继续???"
                 pause
             }
-            is_install_caddy=1
         fi
         # set host
         [[ ! $host ]] && ask string host "请输入域名:"
@@ -1211,11 +1130,6 @@ add() {
 
     fi
 
-    # install caddy
-    if [[ $is_install_caddy ]]; then
-        get install-caddy
-    fi
-
     # create json
     create server $is_new_protocol
 
@@ -1245,31 +1159,6 @@ PrivateTmp=true
 ProtectSystem=full
 #CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
 #AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
-
-[Install]
-WantedBy=multi-user.target"
-        ;;
-    caddy)
-        cat >/lib/systemd/system/caddy.service <<<"
-#https://github.com/caddyserver/dist/blob/master/init/caddy.service
-[Unit]
-Description=Caddy
-Documentation=https://caddyserver.com/docs/
-After=network.target network-online.target
-Requires=network-online.target
-
-[Service]
-Type=notify
-User=root
-Group=root
-ExecStart=$is_caddy_bin run --environ --config $is_caddyfile --adapter caddyfile
-ExecReload=$is_caddy_bin reload --config $is_caddyfile --adapter caddyfile
-TimeoutStopSec=5s
-LimitNPROC=10000
-LimitNOFILE=1048576
-PrivateTmp=true
-ProtectSystem=full
-#AmbientCapabilities=CAP_NET_BIND_SERVICE
 
 [Install]
 WantedBy=multi-user.target"
@@ -1337,9 +1226,6 @@ get() {
 
             is_config_name=$is_config_file
 
-            if [[ $is_caddy && $host && -f $is_caddy_conf/$host.conf ]]; then
-                is_tmp_https_port=$(egrep -o "$host:[1-9][0-9]?+" $is_caddy_conf/$host.conf | sed s/.*://)
-            fi
             [[ $is_tmp_https_port ]] && is_https_port=$is_tmp_https_port
             [[ $is_client && $host ]] && port=$is_https_port
             get protocol $is_protocol-$net_type
@@ -1476,13 +1362,6 @@ get() {
         [[ $1 == 'log' ]] && tail -f $is_log_dir/access.log
         [[ $1 == 'logerr' ]] && tail -f $is_log_dir/error.log
         ;;
-    install-caddy)
-        _green "\n安装 Caddy 实现自动配置 TLS.\n"
-        download caddy
-        install_service caddy &>/dev/null
-        is_caddy=1
-        _green "安装 Caddy 成功.\n"
-        ;;
     reinstall)
         is_install_sh=$(cat $is_sh_dir/install.sh)
         uninstall
@@ -1506,20 +1385,6 @@ get() {
             fi
         else
             _green "\n$is_core_name 正在运行, 跳过测试\n"
-        fi
-        if [[ $is_caddy ]]; then
-            if [[ ! $(pgrep -f $is_caddy_bin) ]]; then
-                _yellow "\n测试运行 Caddy ..\n"
-                manage start caddy &>/dev/null
-                if [[ $is_run_fail == 'caddy' ]]; then
-                    _red "Caddy 运行失败信息:"
-                    $is_caddy_bin run --config $is_caddyfile
-                else
-                    _green "\n测试通过, 已启动 Caddy ..\n"
-                fi
-            else
-                _green "\nCaddy 正在运行, 跳过测试\n"
-            fi
         fi
         ;;
     esac
@@ -1551,7 +1416,6 @@ info() {
                 }
                 is_url="$is_protocol://$uuid@$host:$is_https_port?encryption=none&security=tls&type=$net&host=$host&path=$path#$currentCountry-$net-$host"
             }
-            [[ $is_caddy ]] && is_can_change+=(11)
             is_info_str=($is_protocol $is_addr $is_https_port $uuid $net $host $path 'tls')
         else
             is_type=none
@@ -1666,63 +1530,9 @@ info() {
 # footer msg
 footer_msg() {
     [[ $is_core_stop && ! $is_new_json ]] && warn "$is_core_name 当前处于停止状态."
-    [[ $is_caddy_stop && $host ]] && warn "Caddy 当前处于停止状态."
 }
 
-caddy_config() {
-    is_caddy_site_file=$is_caddy_conf/${host}.conf
-    case $1 in
-    new)
-        mkdir -p $is_caddy_dir $is_caddy_dir/sites $is_caddy_conf
-        cat >$is_caddyfile <<-EOF
-# don't edit this file #
-
-# https://caddyserver.com/docs/caddyfile/options
-{
-  admin off
-  http_port $is_http_port
-  https_port $is_https_port
-}
-import $is_caddy_conf/*.conf
-import $is_caddy_dir/sites/*.conf
-EOF
-        ;;
-    *ws* | *http*)
-        cat >${is_caddy_site_file} <<<"
-${host}:${is_https_port} {
-    reverse_proxy ${path} 127.0.0.1:${port}
-    import ${is_caddy_site_file}.add
-}"
-        ;;
-    *h2*)
-        cat >${is_caddy_site_file} <<<"
-${host}:${is_https_port} {
-    reverse_proxy ${path} h2c://127.0.0.1:${port} {
-        transport http {
-			tls_insecure_skip_verify
-		}
-    }
-    import ${is_caddy_site_file}.add
-}"
-        ;;
-    *grpc*)
-        cat >${is_caddy_site_file} <<<"
-${host}:${is_https_port} {
-    reverse_proxy /${path}/* h2c://127.0.0.1:${port}
-    import ${is_caddy_site_file}.add
-}"
-        ;;
-    proxy)
-
-        cat >${is_caddy_site_file}.add <<<"
-reverse_proxy https://$proxy_site {
-        header_up Host {upstream_hostport}
-}"
-        ;;
-    esac
-}
-
-# update core, sh, caddy
+# update core, sh
 update() {
     case $1 in
     1 | core | $is_core)
@@ -1737,15 +1547,8 @@ update() {
         is_run_ver=$is_sh_ver
         is_update_repo=$is_sh_repo
         ;;
-    3 | caddy)
-        [[ ! $is_caddy ]] && err "不支持更新 Caddy."
-        is_update_name=caddy
-        is_show_name="Caddy"
-        is_run_ver=$is_caddy_ver
-        is_update_repo=$is_caddy_repo
-        ;;
     *)
-        err "无法识别 ($1), 请使用: $is_core update [core | sh | caddy] [ver]"
+        err "无法识别 ($1), 请使用: $is_core update [core | sh ] [ver]"
         ;;
     esac
     [[ $2 ]] && is_new_ver=v${2#v}
@@ -1944,7 +1747,6 @@ main_menu_show() {
         ;;
     8)
         is_tmp_list=("更新$is_core_name" "更新脚本")
-        [[ $is_caddy ]] && is_tmp_list+=("更新Caddy")
         ask list is_do_update null "\n请选择更新:\n"
         update $REPLY
         ;;
@@ -1968,26 +1770,6 @@ else
     is_core_status=$(_red_bg stopped)
     is_core_stop=1
 fi
-if [[ -f $is_caddy_bin && -d $is_caddy_dir && $is_caddy_service ]]; then
-    is_caddy=1
-    # fix caddy run; ver >= 2.8.2
-    [[ ! $(grep '\-\-adapter caddyfile' /lib/systemd/system/caddy.service) ]] && {
-        install_service caddy
-        systemctl restart caddy &
-    }
-    is_caddy_ver=$($is_caddy_bin version | head -n1 | cut -d " " -f1)
-    is_tmp_http_port=$(egrep '^ {2,}http_port|^http_port' $is_caddyfile | egrep -o [0-9]+)
-    is_tmp_https_port=$(egrep '^ {2,}https_port|^https_port' $is_caddyfile | egrep -o [0-9]+)
-    [[ $is_tmp_http_port ]] && is_http_port=$is_tmp_http_port
-    [[ $is_tmp_https_port ]] && is_https_port=$is_tmp_https_port
-    if [[ $(pgrep -f $is_caddy_bin) ]]; then
-        is_caddy_status=$(_green running)
-    else
-        is_caddy_status=$(_red_bg stopped)
-        is_caddy_stop=1
-    fi
-fi
-
 main_menu_show
 }
 
