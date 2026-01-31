@@ -1655,7 +1655,7 @@ system_tools_menu() {
 			echo "官网介绍: https://xanmod.org/"
 			echo "------------------------------------------------"
 			echo "仅支持Debian/Ubuntu 仅支持x86_64架构"
-			echo "VPS是512M内存的，将自动添加512M虚拟内存，防止因内存不足失联！"
+			echo "将自动添加512M虚拟内存，防止因内存不足失联！"
 			echo "------------------------------------------------"
 			read -p "确定继续吗？(Y/N): " choice
 
@@ -1673,19 +1673,22 @@ system_tools_menu() {
 				fi
 
 				# 检查系统架构
+				local swap_total=$(free -m | awk 'NR==3{print $2}')
 				arch=$(dpkg --print-architecture)
 				if [ "$arch" != "amd64" ]; then
 					echo "当前环境不支持，仅支持x86_64架构"
 					break
 				fi
 
-				new_swap=510
-				add_swap
+				if [ $swap_total -le 510 ]; then
+					new_swap=510
+					add_swap
+				fi
+				
 				install wget gpg ca-certificates lsb-release apt-transport-https
-
 				wget -qO - https://dl.xanmod.org/archive.key | gpg --dearmor -o /usr/share/keyrings/xanmod-archive-keyring.gpg --yes
 
-				# 步骤3：添加存储库
+				# 添加存储库
 				echo 'deb [signed-by=/usr/share/keyrings/xanmod-archive-keyring.gpg] http://deb.xanmod.org releases main' | tee /etc/apt/sources.list.d/xanmod-release.list
 
 				version=$(wget -q https://dl.xanmod.org/check_x86-64_psabi.sh && chmod +x check_x86-64_psabi.sh && ./check_x86-64_psabi.sh | grep -oP 'x86-64-v\K\d+|x86-64-v\d+')
@@ -1693,7 +1696,7 @@ system_tools_menu() {
 				apt-get update
 				apt-get install -y linux-xanmod-x64v$version
 
-				# 步骤5：启用BBR3
+				# 启用BBR3
 				cat >/etc/sysctl.conf <<EOF
 net.core.default_qdisc=fq_pie
 net.ipv4.tcp_congestion_control=bbr
