@@ -1,6 +1,6 @@
 #!/bin/bash
 author=railzen
-is_sh_ver=V1.1.0
+is_sh_ver=V1.1.1
 
 # bash fonts colors
 red='\e[31m'
@@ -192,7 +192,9 @@ pause() {
 }
 
 get_uuid() {
+    local tmp_uuid
     tmp_uuid=$(cat /proc/sys/kernel/random/uuid)
+    echo $tmp_uuid
 }
 
 get_ip() {
@@ -347,13 +349,11 @@ ask() {
                 fi
             }
             [[ $(grep path <<<$is_ask_set) && ! $(is_test path "$REPLY") ]] && {
-                [[ ! $tmp_uuid ]] && get_uuid
-                msg "$is_err 请输入正确的路径, 例如: /$tmp_uuid"
+                msg "$is_err 请输入正确的路径, 例如: /$(get_uuid)"
                 continue
             }
             [[ $(grep uuid <<<$is_ask_set) && ! $(is_test uuid "$REPLY") ]] && {
-                [[ ! $tmp_uuid ]] && get_uuid
-                msg "$is_err 请输入正确的 UUID, 例如: $tmp_uuid"
+                msg "$is_err 请输入正确的 UUID, 例如: $(get_uuid)"
                 continue
             }
             [[ $(grep ^y$ <<<$is_ask_set) ]] && {
@@ -567,7 +567,7 @@ change() {
         # new path
         is_new_path=$3
         [[ ! $path ]] && err "($is_config_file) 不支持更改路径."
-        [[ $is_auto ]] && get_uuid && is_new_path=/$tmp_uuid
+        [[ $is_auto ]] && is_new_path=/$(get_uuid)
         [[ ! $is_new_path ]] && ask string is_new_path "请输入新路径:"
         add $net auto auto $is_new_path
         ;;
@@ -576,7 +576,7 @@ change() {
         is_new_pass=$3
         if [[ $ss_password || $password ]]; then
             [[ $is_auto ]] && {
-                get_uuid && is_new_pass=$tmp_uuid
+                is_new_pass=$(get_uuid)
                 [[ $ss_password ]] && is_new_pass=$(get ss2022)
             }
         else
@@ -592,7 +592,7 @@ change() {
         # new uuid
         is_new_uuid=$3
         [[ ! $uuid ]] && err "($is_config_file) 不支持更改 UUID."
-        [[ $is_auto ]] && get_uuid && is_new_uuid=$tmp_uuid
+        [[ $is_auto ]] && is_new_uuid=$(get_uuid)
         [[ ! $is_new_uuid ]] && ask string is_new_uuid "请输入新 UUID:"
         add $net auto $is_new_uuid
         ;;
@@ -1050,8 +1050,7 @@ add() {
         [[ $ss_password ]] && {
             is_test_json=1
             create server Shadowsocks
-            [[ ! $tmp_uuid ]] && get_uuid
-            is_test_json_save=$is_conf_dir/tmp-test-$tmp_uuid
+            is_test_json_save=$is_conf_dir/tmp-test-$(get_uuid)
             cat <<<"$is_new_json" >$is_test_json_save
             $is_core_bin check -c $is_test_json_save &>/dev/null
             if [[ $? != 0 ]]; then
@@ -1120,7 +1119,7 @@ get() {
     new)
         [[ ! $host ]] && get_ip
         [[ ! $port ]] && port=$(get_random_port)
-        [[ ! $uuid ]] && get_uuid && uuid=$tmp_uuid
+        [[ ! $uuid ]] && uuid=$(get_uuid)
         ;;
     file)
         is_file_str=$2
