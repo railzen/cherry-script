@@ -149,10 +149,7 @@ is_random_ss_method=${ss_method_list[$(shuf -i 4-6 -n1)]} # random only use ss20
 is_random_servername=${servername_list[$(shuf -i 0-${#servername_list[@]} -n1) - 1]}
 
 # tmp dir
-tmpdir=$(mktemp -u)
-[[ ! $tmpdir ]] && {
-    tmpdir=/tmp/tmp-$RANDOM
-}
+tmpdir=/tmp/tmp-cherry-singbox-5ad3e6
 
 # set up var
 for i in ${tmp_var_lists[*]}; do
@@ -711,9 +708,8 @@ download() {
     latest_ver=$2
     [[ ! $latest_ver ]] && get_latest_version $1
     # tmp dir
-    tmpdir=$(mktemp -u)
     [[ ! $tmpdir ]] && {
-        tmpdir=/tmp/tmp-$RANDOM
+        tmpdir=/tmp/tmp-cherry-singbox-5ad3e6
     }
     mkdir -p $tmpdir
     case $1 in
@@ -1789,10 +1785,10 @@ start_script() {
             uninstall
             ;;
         0)
-            clear
             exit 0
             ;;
     esac
+    start_script
 }
 
 
@@ -1835,6 +1831,7 @@ script_pre_check() {
 
     clear
     # create workdir
+    rm -rf $tmpdir
     mkdir -p $tmpdir
     mkdir -p $is_sh_dir
 
