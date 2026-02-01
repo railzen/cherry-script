@@ -247,7 +247,6 @@ is_test() {
 		;;
 	port)
 		if [[ $(is_test number $2) ]]; then
-			open_firewall_port $2
 			[[ $2 -le 65535 ]] && echo ok
 		fi
 		;;
@@ -1454,13 +1453,8 @@ info() {
 			warn "某些客户端如(V2rayN 等)导入URL需手动将: 跳过证书验证(allowInsecure) 设置为 true, 或打开: 允许不安全的连接"
 		}
 	fi
-	footer_msg
-	pause
-}
-
-# footer msg
-footer_msg() {
 	[[ $is_core_stop && ! $is_new_json ]] && warn "$is_core_name 当前处于停止状态."
+	pause
 }
 
 # update core, sh
