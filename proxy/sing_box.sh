@@ -79,18 +79,9 @@ protocol_list=(
     VMess-HTTP
     VMess-QUIC
     Shadowsocks
-    VMess-H2-TLS
-    VMess-WS-TLS
-    VLESS-H2-TLS
-    VLESS-WS-TLS
-    Trojan-H2-TLS
-    Trojan-WS-TLS
-    VMess-HTTPUpgrade-TLS
-    VLESS-HTTPUpgrade-TLS
-    Trojan-HTTPUpgrade-TLS
     VLESS-REALITY
     VLESS-HTTP2-REALITY
-    # Direct
+    Direct
     Socks
 )
 ss_method_list=(
@@ -198,7 +189,7 @@ get_uuid() {
 }
 
 get_ip() {
-    [[ $ip || $is_no_auto_tls || $is_gen || $is_dont_get_ip ]] && return
+    [[ $ip || $is_gen || $is_dont_get_ip ]] && return
     export "$(_wget -4 -qO- https://one.one.one.one/cdn-cgi/trace | grep ip=)" &>/dev/null
     [[ ! $ip ]] && export "$(_wget -6 -qO- https://one.one.one.one/cdn-cgi/trace | grep ip=)" &>/dev/null
     [[ ! $ip ]] && {
@@ -293,12 +284,6 @@ ask() {
         ;;
     set_protocol)
         is_tmp_list=(${protocol_list[@]})
-        [[ $is_no_auto_tls ]] && {
-            unset is_tmp_list
-            for v in ${protocol_list[@]}; do
-                [[ $(grep -i tls$ <<<$v) ]] && is_tmp_list=(${is_tmp_list[@]} $v)
-            done
-        }
         is_opt_msg="\n请选择协议:\n"
         is_ask_set=is_new_protocol
         ;;
@@ -897,13 +882,6 @@ add() {
     [[ ! $is_new_protocol ]] && ask set_protocol
 
     case ${is_new_protocol,,} in
-    *-tls)
-        is_use_tls=1
-        is_use_host=$2
-        is_use_uuid=$3
-        is_use_path=$4
-        is_add_opts="[host] [uuid] [/path]"
-        ;;
     vmess* | tuic*)
         is_use_port=$2
         is_use_uuid=$3
@@ -953,7 +931,7 @@ add() {
         case $is_old_net in
         h2 | ws | httpupgrade)
             old_host=$host
-            [[ ! $is_use_tls ]] && host=
+            host=
             ;;
         reality)
             net_type=
@@ -965,11 +943,6 @@ add() {
         esac
         [[ ! $(is_test uuid $uuid) ]] && uuid=
         [[ $(is_test uuid $password) ]] && uuid=$password
-    fi
-
-    # no-auto-tls only use h2,ws,grpc
-    if [[ $is_no_auto_tls && ! $is_use_tls ]]; then
-        err "$is_new_protocol 不支持手动配置 tls."
     fi
 
     # prefer args.
@@ -1030,50 +1003,31 @@ add() {
         [[ $is_use_socks_pass ]] && is_socks_pass=$is_use_socks_pass
     fi
 
-    if [[ $is_use_tls ]]; then
-        if [[ ! $is_no_auto_tls && ! $is_gen && ! $is_dont_test_host ]]; then
-            # test auto tls
-            [[ $(is_test port_used 80) || $(is_test port_used 443) ]] && {
-                get_random_port
-                is_http_port=$tmp_port
-                get_random_port
-                is_https_port=$tmp_port
-                warn "端口 (80 或 443) 已经被占用, 你也可以考虑使用 no-auto-tls"
-                msg "请确定是否继续???"
-                pause
-            }
-        fi
-        # set host
-        [[ ! $host ]] && ask string host "请输入域名:"
-        # test host dns
-        get host-test
-    else
-        # set port
-        #[[ ! $port ]] && ask string port "请输入端口:"
-        if [[ ! $port ]]; then
-            echo -e "本步骤会对系统防火墙(ufw/firewalld)进行端口放行操作，请注意安全性！"
-            echo -e "请输入端口[1-65535]:"
-            read -e -p "(默认随机):" port
-            [[ -z "${port}" ]] && get_random_port && port=$tmp_port
-            echo -e "端口 : ${port} "
-            open_firewall_port $port
-        fi
-
-        case ${is_new_protocol,,} in
-        socks)
-            # set user
-            [[ ! $is_socks_user ]] && ask string is_socks_user "请设置用户名:"
-            # set password
-            [[ ! $is_socks_pass ]] && ask string is_socks_pass "请设置密码:"
-            ;;
-        shadowsocks)
-            # set method
-            [[ ! $ss_method ]] && ask set_ss_method
-            # set password
-            [[ ! $ss_password ]] && ask string ss_password "请设置密码(默认随机):"
-            ;;
-        esac
+    # set port
+    #[[ ! $port ]] && ask string port "请输入端口:"
+    if [[ ! $port ]]; then
+        echo -e "本步骤会对系统防火墙(ufw/firewalld)进行端口放行操作，请注意安全性！"
+        echo -e "请输入端口[1-65535]:"
+        read -e -p "(默认随机):" port
+        [[ -z "${port}" ]] && get_random_port && port=$tmp_port
+        echo -e "端口 : ${port} "
+        open_firewall_port $port
     fi
+
+    case ${is_new_protocol,,} in
+    socks)
+        # set user
+        [[ ! $is_socks_user ]] && ask string is_socks_user "请设置用户名:"
+        # set password
+        [[ ! $is_socks_pass ]] && ask string is_socks_pass "请设置密码:"
+        ;;
+    shadowsocks)
+        # set method
+        [[ ! $ss_method ]] && ask set_ss_method
+        # set password
+        [[ ! $ss_password ]] && ask string ss_password "请设置密码(默认随机):"
+        ;;
+    esac
 
     # Dokodemo-Door
     if [[ $is_new_protocol == 'Direct' ]]; then
@@ -1307,7 +1261,7 @@ get() {
         json_str="$is_users,$is_json_add"
         ;;
     host-test) # test host dns record; for auto *tls required.
-        [[ $is_no_auto_tls || $is_gen || $is_dont_test_host ]] && return
+        [[ $is_gen || $is_dont_test_host ]] && return
         get_ip
         get ping
         if [[ ! $(grep $ip <<<$is_host_dns) ]]; then
@@ -1493,11 +1447,6 @@ info() {
         [[ $is_insecure ]] && {
             warn "某些客户端如(V2rayN 等)导入URL需手动将: 跳过证书验证(allowInsecure) 设置为 true, 或打开: 允许不安全的连接"
         }
-    fi
-    if [[ $is_no_auto_tls ]]; then
-        msg "------------- no-auto-tls INFO -------------"
-        msg "端口(port): $port"
-        msg "路径(path): $path"
     fi
     footer_msg
 }
