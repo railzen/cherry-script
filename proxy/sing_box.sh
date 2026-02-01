@@ -189,7 +189,8 @@ pause() {
     echo
     echo -ne "按 $(_green Enter 回车键) 继续, 或按 $(_red Ctrl + C) 取消."
     read -rs -d $'\n'
-    echo
+    clear
+    main_menu_show
 }
 
 get_uuid() {
