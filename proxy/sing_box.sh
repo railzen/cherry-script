@@ -1541,7 +1541,7 @@ download() {
         is_ok=$is_core_ok
         ;;
     sh)
-        link='${script_update_link}'
+        link=$script_update_link
         mkdir -p $is_core_dir
         mkdir -p $is_sh_dir
         cd $is_sh_dir
@@ -1740,7 +1740,6 @@ start_script() {
         is_core_stop=1
     fi
 
-    clear
     msg "------------- Sing-Box script $is_sh_ver -----------------"
     [[ -d $is_core_dir/bin && -d $is_sh_dir && -d $is_conf_dir ]] && \
     msg "Sing-Box $is_core_ver: $is_core_status" && \
@@ -1799,7 +1798,6 @@ start_script() {
             exit 0
             ;;
     esac
-    start_script
 }
 
 
