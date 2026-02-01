@@ -1455,6 +1455,7 @@ info() {
         }
     fi
     footer_msg
+    pause
 }
 
 # footer msg
