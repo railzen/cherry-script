@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-main_version="V1.1.37 Build260130"
+main_version="V1.1.38 Build260201"
 work_path="/opt/CherryScript"
 
 main_menu_start() {
@@ -804,7 +804,7 @@ WantedBy=multi-user.target' >/etc/systemd/system/Cherry-startup.service
 			#choice=y
 			#if [ "$choice" == "y" ]; then
 			clear
-			bash -c "$(curl -sL https://raw.githubusercontent.com/railzen/CherryScript/main/snell/snell.sh)"
+			bash -c "$(curl -sL https://raw.githubusercontent.com/railzen/CherryScript/main/proxy/snell.sh)"
 			;;
 
 		12)
