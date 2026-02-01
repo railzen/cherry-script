@@ -176,10 +176,19 @@ msg_ul() {
 
 # pause
 pause() {
+    local input_pause_key=''
     echo
     echo -ne "按 $(_green Enter 回车键) 继续, 或按 $(_red Ctrl + C) 取消."
-    read -rs -d $'\n'
-    clear
+    # 持续读取输入，直到检测到回车键
+    while true; do
+        # 读取一个字符（静默模式，不显示输入）
+        read -rs input_pause_key
+        # 检查是否是回车键（回车键通常产生空字符或换行符）
+        if [[ -z "$input_pause_key" ]]; then
+            clear
+            break
+        fi
+    done
 }
 
 get_uuid() {
