@@ -1740,14 +1740,15 @@ start_script() {
         is_core_stop=1
     fi
 
+    clear
     msg "------------- Sing-Box script $is_sh_ver -----------------"
     [[ -d $is_core_dir/bin && -d $is_sh_dir && -d $is_conf_dir ]] && \
     msg "Sing-Box $is_core_ver: $is_core_status" && \
     msg "-------------------------------------------------------"
     #ask mainmenu
     echo "1.添加配置"
-    echo "2.更改配置"
-    echo "3.查看配置"
+    echo "2.查看配置"
+    echo "3.更改配置"
     echo "4.删除配置"
     [[ -d $is_core_dir/bin && -d $is_sh_dir && -d $is_conf_dir ]] && \
     echo "5.启动服务" && \
@@ -1765,10 +1766,10 @@ start_script() {
             add
             ;;
         2)
-            change
+            info
             ;;
         3)
-            info
+            change
             ;;
         4)
             del
@@ -1851,7 +1852,8 @@ script_pre_check() {
 
     cd $is_sh_dir
     curl -sSO $script_update_link
-    clear
+    
+    # Start Menu
     start_script
     
     # remove tmp dir and exit.
