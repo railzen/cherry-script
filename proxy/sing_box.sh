@@ -205,6 +205,7 @@ get_ip() {
 }
 
 get_random_port() {
+    local tmp_port
     is_count=0
     while :; do
         ((is_count++))
@@ -214,6 +215,7 @@ get_random_port() {
         tmp_port=$(shuf -i 445-65535 -n 1)
         [[ ! $(is_test port_used $tmp_port) && $tmp_port != $port ]] && break
     done
+    echo $tmp_port
 }
 
 get_pbk() {
@@ -548,7 +550,7 @@ change() {
             [[ ! $(is_test port $is_new_port) ]] && err "请输入正确的端口, 可选(1-65535)"
             [[ $is_new_port != 443 && $(is_test port_used $is_new_port) ]] && err "无法使用 ($is_new_port) 端口"
         fi
-        [[ $is_auto ]] && get_random_port && is_new_port=$tmp_port
+        [[ $is_auto ]] && is_new_port=$(get_random_port)
         [[ ! $is_new_port ]] && ask string is_new_port "请输入新端口:"
         add $net $is_new_port
 
@@ -1014,7 +1016,7 @@ add() {
         echo -e "本步骤会对系统防火墙(ufw/firewalld)进行端口放行操作，请注意安全性！"
         echo -e "请输入端口[1-65535]:"
         read -e -p "(默认随机):" port
-        [[ -z "${port}" ]] && get_random_port && port=$tmp_port
+        [[ -z "${port}" ]] && port=$(get_random_port)
         echo -e "端口 : ${port} "
         open_firewall_port $port
     fi
@@ -1117,7 +1119,7 @@ get() {
         ;;
     new)
         [[ ! $host ]] && get_ip
-        [[ ! $port ]] && get_random_port && port=$tmp_port
+        [[ ! $port ]] && port=$(get_random_port)
         [[ ! $uuid ]] && get_uuid && uuid=$tmp_uuid
         ;;
     file)
