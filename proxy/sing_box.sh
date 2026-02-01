@@ -1788,17 +1788,6 @@ install_script_start()
     # create condf dir
     mkdir -p $is_conf_dir
     
-    # tmp tls key
-    is_tls_cer=$is_core_dir/bin/tls.cer
-    is_tls_key=$is_core_dir/bin/tls.key
-    [[ ! -f $is_tls_cer || ! -f $is_tls_key ]] && {
-        is_tls_tmp=${is_tls_key/key/tmp}
-        $is_core_bin generate tls-keypair tls -m 456 >$is_tls_tmp
-        awk '/BEGIN PRIVATE KEY/,/END PRIVATE KEY/' $is_tls_tmp >$is_tls_key
-        awk '/BEGIN CERTIFICATE/,/END CERTIFICATE/' $is_tls_tmp >$is_tls_cer
-        rm $is_tls_tmp
-    }
-    
     clear
     _green "Install Finish"
 }
@@ -1813,6 +1802,17 @@ chenk_install() {
         clear
         start_script
         exit 0
+    }
+
+    # tmp tls key
+    is_tls_cer=$is_core_dir/bin/tls.cer
+    is_tls_key=$is_core_dir/bin/tls.key
+    [[ ! -f $is_tls_cer || ! -f $is_tls_key ]] && {
+        is_tls_tmp=${is_tls_key/key/tmp}
+        $is_core_bin generate tls-keypair tls -m 456 >$is_tls_tmp
+        awk '/BEGIN PRIVATE KEY/,/END PRIVATE KEY/' $is_tls_tmp >$is_tls_key
+        awk '/BEGIN CERTIFICATE/,/END CERTIFICATE/' $is_tls_tmp >$is_tls_cer
+        rm $is_tls_tmp
     }
 
     clear
