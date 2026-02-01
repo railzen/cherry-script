@@ -1609,93 +1609,6 @@ check_status() {
     }
 }
 
-# exit and remove tmpdir
-exit_and_del_tmpdir() {
-    rm -rf $tmpdir
-    [[ ! $1 ]] && {
-        msg err "哦豁.."
-        msg err "安装过程出现错误..."
-        echo
-        exit 1
-    }
-    exit
-}
-
-# main menu; if no prefer args.
-main_menu_show() {
-    msg "------------- Sing-Box script $is_sh_ver -----------------"
-    [[ -d $is_core_dir/bin && -d $is_sh_dir && -d $is_conf_dir ]] && \
-    msg "Sing-Box $is_core_ver: $is_core_status" && \
-    msg "-------------------------------------------------------"
-    #ask mainmenu
-    echo "1.添加配置"
-    echo "2.更改配置"
-    echo "3.查看配置"
-    echo "4.删除配置"
-    [[ -d $is_core_dir/bin && -d $is_sh_dir && -d $is_conf_dir ]] && \
-    echo "5.启动服务" && \
-    echo "6.停止服务" && \
-    echo "7.重启服务" && \
-    echo "8.更新"
-    echo "9.卸载"
-    msg "-------------------------------------------------------"
-    echo "0.退出"
-    msg "-------------------------------------------------------"
-    read -p "请输入你的选择: " REPLY
-    case $REPLY in
-    1)
-        install_script_start
-        add
-        ;;
-    2)
-        change
-        ;;
-    3)
-        info
-        ;;
-    4)
-        del
-        ;;
-    5)
-        manage start &
-        msg "\n管理状态执行: $(_green 启动)\n"
-        ;;
-    6)
-        manage stop &
-        msg "\n管理状态执行: $(_green 停止)\n"
-        ;;
-    7)
-        manage restart &
-        msg "\n管理状态执行: $(_green 重启)\n"
-        ;;
-    8)
-        is_tmp_list=("更新$is_core_name" "更新脚本")
-        ask list is_do_update null "\n请选择更新:\n"
-        update $REPLY
-        ;;
-    9)
-        uninstall
-        ;;
-    0)
-        clear
-        exit 0
-        ;;
-    esac
-}
-
-start_script() {
-# core ver
-[[ -f $is_core_bin ]] && is_core_ver=$($is_core_bin version | head -n1 | cut -d " " -f3)
-
-if [[ $(pgrep -f $is_core_bin) ]]; then
-    is_core_status=$(_green running)
-else
-    is_core_status=$(_red_bg stopped)
-    is_core_stop=1
-fi
-main_menu_show
-}
-
 install_script_start()
 {
     [[ -d $is_core_dir/bin && -d $is_sh_dir && -d $is_conf_dir ]] && {
@@ -1748,8 +1661,6 @@ install_script_start()
 
     # check background tasks status
     check_status
-
-
     # create core bin dir
     mkdir -p $is_core_dir/bin
     # copy core file or unzip core zip file
@@ -1791,18 +1702,120 @@ install_script_start()
     clear
     _green "Install Finish"
 }
-# main
-chenk_install() {
 
-    # check old version
-    [[ -d $is_core_dir/bin && -d $is_sh_dir && -d $is_conf_dir ]] && {
-        #err "检测到脚本已安装, 如需重装请使用${green} ${is_core} reinstall ${none}命令."
-        cd /etc/sing-box/sh
-        curl -sSO "https://raw.githubusercontent.com/railzen/CherryScript/main/proxy/sing_box.sh"
-        clear
-        start_script
-        exit 0
+# exit and remove tmpdir
+exit_and_del_tmpdir() {
+    rm -rf $tmpdir
+    [[ ! $1 ]] && {
+        msg err "哦豁.."
+        msg err "安装过程出现错误..."
+        echo
+        exit 1
     }
+    exit
+}
+
+start_script() {
+    # core ver
+    [[ -f $is_core_bin ]] && is_core_ver=$($is_core_bin version | head -n1 | cut -d " " -f3)
+
+    if [[ $(pgrep -f $is_core_bin) ]]; then
+        is_core_status=$(_green running)
+    else
+        is_core_status=$(_red_bg stopped)
+        is_core_stop=1
+    fi
+
+    msg "------------- Sing-Box script $is_sh_ver -----------------"
+    [[ -d $is_core_dir/bin && -d $is_sh_dir && -d $is_conf_dir ]] && \
+    msg "Sing-Box $is_core_ver: $is_core_status" && \
+    msg "-------------------------------------------------------"
+    #ask mainmenu
+    echo "1.添加配置"
+    echo "2.更改配置"
+    echo "3.查看配置"
+    echo "4.删除配置"
+    [[ -d $is_core_dir/bin && -d $is_sh_dir && -d $is_conf_dir ]] && \
+    echo "5.启动服务" && \
+    echo "6.停止服务" && \
+    echo "7.重启服务" && \
+    echo "8.更新"
+    echo "9.卸载"
+    msg "-------------------------------------------------------"
+    echo "0.退出"
+    msg "-------------------------------------------------------"
+    read -p "请输入你的选择: " REPLY
+        case $REPLY in
+        1)
+            install_script_start
+            add
+            ;;
+        2)
+            change
+            ;;
+        3)
+            info
+            ;;
+        4)
+            del
+            ;;
+        5)
+            manage start &
+            msg "\n管理状态执行: $(_green 启动)\n"
+            ;;
+        6)
+            manage stop &
+            msg "\n管理状态执行: $(_green 停止)\n"
+            ;;
+        7)
+            manage restart &
+            msg "\n管理状态执行: $(_green 重启)\n"
+            ;;
+        8)
+            is_tmp_list=("更新$is_core_name" "更新脚本")
+            ask list is_do_update null "\n请选择更新:\n"
+            update $REPLY
+            ;;
+        9)
+            uninstall
+            ;;
+        0)
+            clear
+            exit 0
+            ;;
+    esac
+}
+
+
+# main
+script_pre_check() {
+
+    # start.
+    # root check
+    [[ $EUID != 0 ]] && err "当前非 ${yellow}ROOT用户.${none}"
+
+    # yum or apt-get, ubuntu/debian/centos
+    cmd=$(type -P apt-get || type -P yum)
+    [[ ! $cmd ]] && err "此脚本仅支持 ${yellow}(Ubuntu or Debian or CentOS)${none}."
+
+    # systemd
+    [[ ! $(type -P systemctl) ]] && {
+        err "此系统缺少 ${yellow}(systemctl)${none}, 请尝试执行:${yellow} ${cmd} update -y;${cmd} install systemd -y ${none}来修复此错误."
+    }
+
+
+    # x64
+    case $(uname -m) in
+    amd64 | x86_64)
+        is_arch=amd64
+        ;;
+    *aarch64* | *armv8*)
+        is_arch=arm64
+        ;;
+    *)
+        err "此脚本仅支持 64 位系统..."
+        ;;
+    esac
 
     # tmp tls key
     is_tls_cer=$is_core_dir/bin/tls.cer
@@ -1816,10 +1829,8 @@ chenk_install() {
     }
 
     clear
-    # create tmpdir
+    # create workdir
     mkdir -p $tmpdir
-    
-    # create sh dir...
     mkdir -p $is_sh_dir
 
     # create soft link
@@ -1829,38 +1840,11 @@ chenk_install() {
 
     cd $is_sh_dir
     curl -sSO "https://raw.githubusercontent.com/railzen/CherryScript/main/proxy/sing_box.sh"
+    clear
     start_script
     
     # remove tmp dir and exit.
     exit_and_del_tmpdir ok
 }
 
-# start.
-# root check
-[[ $EUID != 0 ]] && err "当前非 ${yellow}ROOT用户.${none}"
-
-# yum or apt-get, ubuntu/debian/centos
-cmd=$(type -P apt-get || type -P yum)
-[[ ! $cmd ]] && err "此脚本仅支持 ${yellow}(Ubuntu or Debian or CentOS)${none}."
-
-# systemd
-[[ ! $(type -P systemctl) ]] && {
-    err "此系统缺少 ${yellow}(systemctl)${none}, 请尝试执行:${yellow} ${cmd} update -y;${cmd} install systemd -y ${none}来修复此错误."
-}
-
-
-# x64
-case $(uname -m) in
-amd64 | x86_64)
-    is_arch=amd64
-    ;;
-*aarch64* | *armv8*)
-    is_arch=arm64
-    ;;
-*)
-    err "此脚本仅支持 64 位系统..."
-    ;;
-esac
-
-
-chenk_install $@
+script_pre_check $@
