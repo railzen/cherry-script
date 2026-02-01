@@ -1731,6 +1731,7 @@ start_script() {
         is_core_stop=1
     fi
 
+    clear
     msg "------------- Sing-Box script $is_sh_ver -----------------"
     [[ -d $is_core_dir/bin && -d $is_sh_dir && -d $is_conf_dir ]] && \
     msg "Sing-Box $is_core_ver: $is_core_status" && \
@@ -1783,6 +1784,7 @@ start_script() {
             ;;
         9)
             uninstall
+            exit 0
             ;;
         0)
             exit 0
