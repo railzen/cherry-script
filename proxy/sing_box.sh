@@ -1,6 +1,6 @@
 #!/bin/bash
 author=railzen
-is_sh_ver=V1.0.9
+is_sh_ver=V1.1.0
 
 # bash fonts colors
 red='\e[31m'
@@ -21,6 +21,7 @@ _red_bg() { echo -e "\e[41m$@${none}"; }
 
 # wget installed or none
 is_wget=$(type -P wget)
+script_update_link="https://raw.githubusercontent.com/railzen/CherryScript/main/proxy/sing_box.sh"
 is_core=sing-box
 is_core_name=sing-box
 is_core_dir=/etc/$is_core
@@ -33,7 +34,8 @@ is_sh_dir=$is_core_dir/sh
 is_sh_repo=$author/CherryScript/main/proxy
 is_pkg="wget tar"
 is_config_json=$is_core_dir/config.json
-is_http_port=80
+is_tls_cer=$is_core_dir/bin/tls.cer
+is_tls_key=$is_core_dir/bin/tls.key
 is_https_port=443
 
 servername_list=(
@@ -226,7 +228,6 @@ open_firewall_port() {
     sudo firewall-cmd --permanent --add-port=$1 > /dev/null 2>&1
     sed -i "/COMMIT/i -A INPUT -p tcp --dport $1 -j ACCEPT" /etc/iptables/rules.v4 > /dev/null 2>&1
     sed -i "/COMMIT/i -A INPUT -p udp --dport $1 -j ACCEPT" /etc/iptables/rules.v4 > /dev/null 2>&1
-#    iptables-restore < /etc/iptables/rules.v4 > /dev/null 2>&1
 }
 
 is_test() {
@@ -693,8 +694,8 @@ get_latest_version() {
     sh)
         name="$is_core_name 脚本"
         url="https://api.github.com/repos/$is_sh_repo/releases/latest?v=$RANDOM"
-        cd /etc/sing-box/sh
-        curl -sSO "https://raw.githubusercontent.com/railzen/CherryScript/main/proxy/sing_box.sh"
+        cd $is_sh_dir
+        curl -sSO $script_update_link
         echo "已更新到最新版本"
         return 0
         ;;
@@ -1535,11 +1536,11 @@ download() {
         is_ok=$is_core_ok
         ;;
     sh)
-        link=https://raw.githubusercontent.com/railzen/CherryScript/main/ludo.sh
-        mkdir -p /etc/sing-box
-        mkdir -p /etc/sing-box/sh
-        cd /etc/sing-box/sh
-        curl -sSO "https://raw.githubusercontent.com/railzen/CherryScript/main/proxy/sing_box.sh"
+        link='${script_update_link}'
+        mkdir -p $is_core_dir
+        mkdir -p $is_sh_dir
+        cd $is_sh_dir
+        curl -sSO $script_update_link
         chmod +x *.sh
         cd -
         name="$is_core_name 脚本"
@@ -1613,8 +1614,8 @@ install_script_start()
 {
     [[ -d $is_core_dir/bin && -d $is_sh_dir && -d $is_conf_dir ]] && {
         #err "检测到脚本已安装, 如需重装请使用${green} ${is_core} reinstall ${none}命令."
-        cd /etc/sing-box/sh
-        curl -sSO "https://raw.githubusercontent.com/railzen/CherryScript/main/proxy/sing_box.sh"
+        cd $is_sh_dir
+        curl -sSO $script_update_link
         clear
         return
     }
@@ -1699,6 +1700,14 @@ install_script_start()
     # create condf dir
     mkdir -p $is_conf_dir
     
+    # tls key pair
+    [[ ! -f $is_tls_cer || ! -f $is_tls_key ]] && {
+        is_tls_tmp=${is_tls_key/key/tmp}
+        $is_core_bin generate tls-keypair tls -m 456 >$is_tls_tmp
+        awk '/BEGIN PRIVATE KEY/,/END PRIVATE KEY/' $is_tls_tmp >$is_tls_key
+        awk '/BEGIN CERTIFICATE/,/END CERTIFICATE/' $is_tls_tmp >$is_tls_cer
+        rm $is_tls_tmp
+    }
     clear
     _green "Install Finish"
 }
@@ -1789,8 +1798,6 @@ start_script() {
 
 # main
 script_pre_check() {
-
-    # start.
     # root check
     [[ $EUID != 0 ]] && err "当前非 ${yellow}ROOT用户.${none}"
 
@@ -1817,9 +1824,7 @@ script_pre_check() {
         ;;
     esac
 
-    # tmp tls key
-    is_tls_cer=$is_core_dir/bin/tls.cer
-    is_tls_key=$is_core_dir/bin/tls.key
+    # tls key pair
     [[ ! -f $is_tls_cer || ! -f $is_tls_key ]] && {
         is_tls_tmp=${is_tls_key/key/tmp}
         $is_core_bin generate tls-keypair tls -m 456 >$is_tls_tmp
@@ -1839,7 +1844,7 @@ script_pre_check() {
     fi
 
     cd $is_sh_dir
-    curl -sSO "https://raw.githubusercontent.com/railzen/CherryScript/main/proxy/sing_box.sh"
+    curl -sSO $script_update_link
     clear
     start_script
     
