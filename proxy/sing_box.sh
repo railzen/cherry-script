@@ -102,17 +102,6 @@ ss_method_list=(
     2022-blake3-aes-256-gcm
     2022-blake3-chacha20-poly1305
 )
-mainmenu=(
-    "添加配置"
-    "更改配置"
-    "查看配置"
-    "删除配置"
-    "运行管理"
-    "更新"
-    "卸载"
-    "帮助"
-    "退出"
-)
 info_list=(
     "协议 (protocol)"
     "地址 (address)"
@@ -216,7 +205,7 @@ get_ip() {
     }
 }
 
-get_port() {
+get_random_port() {
     is_count=0
     while :; do
         ((is_count++))
@@ -239,13 +228,6 @@ show_list() {
     COLUMNS=1
     select i in "$@"; do echo; done &
     wait
-    # i=0
-    # for v in "$@"; do
-    #     ((i++))
-    #     echo "$i) $v"
-    # done
-    # echo
-
 }
 
 open_firewall_port() {
@@ -351,10 +333,14 @@ ask() {
         echo -ne $is_opt_input_msg
         read REPLY
         [[ ! $REPLY && $is_emtpy_exit ]] && exit
+        if [ ${is_ask_set} == "ss_password" ]; then
+            export $is_ask_set=$REPLY && break
+        fi
         [[ ! $REPLY && $is_default_arg ]] && export $is_ask_set=$is_default_arg && break
         [[ "$REPLY" == "${is_str}2${is_get}3${is_opt}3" && $is_ask_set == 'is_main_pick' ]] && {
             msg "\n${is_get}2${is_str}3${is_msg}3b${is_tmp}o${is_opt}y\n" && exit
         }
+
         if [[ ! $is_tmp_list ]]; then
             [[ $(grep port <<<$is_ask_set) ]] && {
                 [[ ! $(is_test port "$REPLY") ]] && {
@@ -570,7 +556,7 @@ change() {
             [[ ! $(is_test port $is_new_port) ]] && err "请输入正确的端口, 可选(1-65535)"
             [[ $is_new_port != 443 && $(is_test port_used $is_new_port) ]] && err "无法使用 ($is_new_port) 端口"
         fi
-        [[ $is_auto ]] && get_port && is_new_port=$tmp_port
+        [[ $is_auto ]] && get_random_port && is_new_port=$tmp_port
         [[ ! $is_new_port ]] && ask string is_new_port "请输入新端口:"
         add $net $is_new_port
 
@@ -861,13 +847,6 @@ manage() {
     }
 }
 
-rand() { 
- min=$1 
- max=$(($2-$min+1)) 
- num=$(($RANDOM+$RANDOM+$RANDOM+1000000000)) #增加一个10位的数再求余 
- echo $(($num%$max+$min)) 
-}  
-
 # add a config
 add() {
     is_lower=${1,,}
@@ -1054,9 +1033,9 @@ add() {
         if [[ ! $is_no_auto_tls && ! $is_gen && ! $is_dont_test_host ]]; then
             # test auto tls
             [[ $(is_test port_used 80) || $(is_test port_used 443) ]] && {
-                get_port
+                get_random_port
                 is_http_port=$tmp_port
-                get_port
+                get_random_port
                 is_https_port=$tmp_port
                 warn "端口 (80 或 443) 已经被占用, 你也可以考虑使用 no-auto-tls"
                 msg "请确定是否继续???"
@@ -1074,13 +1053,8 @@ add() {
             echo -e "本步骤会对系统防火墙(ufw/firewalld)进行端口放行操作，请注意安全性！"
             echo -e "请输入端口[1-65535]:"
             read -e -p "(默认随机):" port
-            [[ -z "${port}" ]] && port=$(rand 10000 59999) 
-            if [[ ${port} -ge 1 ]] && [[ ${port} -le 65535 ]]; then
-                echo -e "端口 : ${port} "
-            else
-                port=$(rand 10000 59999) 
-                echo -e "输入错误, 使用随机端口${port}"
-            fi
+            [[ -z "${port}" ]] && get_random_port && port=$tmp_port
+            echo -e "端口 : ${port} "
             open_firewall_port $port
         fi
 
@@ -1095,7 +1069,7 @@ add() {
             # set method
             [[ ! $ss_method ]] && ask set_ss_method
             # set password
-            [[ ! $ss_password ]] && ask string ss_password "请设置密码:"
+            [[ ! $ss_password ]] && ask string ss_password "请设置密码(默认随机):"
             ;;
         esac
     fi
@@ -1183,7 +1157,7 @@ get() {
         ;;
     new)
         [[ ! $host ]] && get_ip
-        [[ ! $port ]] && get_port && port=$tmp_port
+        [[ ! $port ]] && get_random_port && port=$tmp_port
         [[ ! $uuid ]] && get_uuid && uuid=$tmp_uuid
         ;;
     file)
