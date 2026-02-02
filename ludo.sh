@@ -315,7 +315,7 @@ main_menu_start() {
 				15)
 					clear
 					if [ ! -f "/etc/systemd/system/Cherry-frps.service" ]; then
-						read -p "尚未安装FRPS服务，是否安装？[Y/n]" yn
+						read -p "尚未安装FRPS服务，是否安装？[y/N]" yn
 						if [[ ${yn} == [Yy] ]]; then
 							mkdir -p ${work_path}/config
 							mkdir -p ${work_path}/frps && cd ${work_path}/frps
