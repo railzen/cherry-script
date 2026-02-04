@@ -5216,7 +5216,7 @@ elif [[ ! $# = 0 && $1 = "update" ]]; then
 	curl -sS -O https://raw.githubusercontent.com/railzen/CherryScript/main/ludo.sh && chmod +x ludo.sh
 	rm -f /usr/local/bin/ludo
 	cp -f ${work_path}/ludo.sh /usr/local/bin/ludo >/dev/null 2>&1
-	echo -e "已更新版本! "
+	echo -e "Update Ver Success! "
 	exit 0
 elif [[ ! $# = 0 && $1 = "sshkey" && -n "$2" ]]; then
 	add_sshkey "$2"
