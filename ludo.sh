@@ -410,6 +410,7 @@ WantedBy=multi-user.target' >/etc/systemd/system/Cherry-startup.service
 				echo "15. nxtrace指定IP回程测试脚本"
 				echo "16. ludashi2020三网线路测试"
 				echo "17. i-abc多功能测速脚本"
+				echo "18. NetQuality 网络质量体检脚本"
 				echo ""
 				echo "----硬件性能测试----------"
 				echo "21. yabs性能测试"
@@ -620,7 +621,11 @@ WantedBy=multi-user.target' >/etc/systemd/system/Cherry-startup.service
 					clear
 					bash <(curl -sL bash.icu/speedtest)
 					;;
-
+				18)
+					clear
+					bash <(curl -sL Net.Check.Place)
+					;;
+				  
 				21)
 					clear
 					new_swap=1024
@@ -3895,7 +3900,6 @@ docker_mng_menu() {
 		;;
 	8)
 		clear
-		send_stats "Docker源"
 		bash <(curl -sSL https://linuxmirrors.cn/docker.sh)
 		;;
 	19)
@@ -4621,7 +4625,7 @@ docker_ssh_migration() {
 
 	list_backups() {
 		local BACKUP_ROOT="/tmp"
-		echo -e "${gl_kjlan}当前备份列表:${gl_bai}"
+		echo -e "${LightBlue}当前备份列表:${White}"
 		ls -1dt ${BACKUP_ROOT}/docker_backup_* 2>/dev/null || echo "无备份"
 	}
 
@@ -4631,9 +4635,7 @@ docker_ssh_migration() {
 	# 备份
 	# ----------------------------
 	backup_docker() {
-		send_stats "Docker备份"
-
-		echo -e "${gl_kjlan}正在备份 Docker 容器...${gl_bai}"
+		echo -e "${LightBlue}正在备份 Docker 容器...${White}"
 		docker ps --format '{{.Names}}'
 		read -e -p  "请输入要备份的容器名（多个空格分隔，回车备份全部运行中容器）: " containers
 
@@ -4648,7 +4650,7 @@ docker_ssh_migration() {
 		else
 			read -ra TARGET_CONTAINERS <<< "$containers"
 		fi
-		[[ ${#TARGET_CONTAINERS[@]} -eq 0 ]] && { echo -e "${gl_hong}没有找到容器${gl_bai}"; return; }
+		[[ ${#TARGET_CONTAINERS[@]} -eq 0 ]] && { echo -e "${Red}没有找到容器${White}"; return; }
 
 		local BACKUP_DIR="${BACKUP_ROOT}/docker_backup_${DATE_STR}"
 		mkdir -p "$BACKUP_DIR"
@@ -4662,12 +4664,12 @@ docker_ssh_migration() {
 		declare -A PACKED_COMPOSE_PATHS=()
 
 		for c in "${TARGET_CONTAINERS[@]}"; do
-			echo -e "${gl_lv}备份容器: $c${gl_bai}"
+			echo -e "${Green}备份容器: $c${White}"
 			local inspect_file="${BACKUP_DIR}/${c}_inspect.json"
 			docker inspect "$c" > "$inspect_file"
 
 			if is_compose_container "$c"; then
-				echo -e "${gl_kjlan}检测到 $c 是 docker-compose 容器${gl_bai}"
+				echo -e "${LightBlue}检测到 $c 是 docker-compose 容器${White}"
 				local project_dir=$(docker inspect "$c" | jq -r '.[0].Config.Labels["com.docker.compose.project.working_dir"] // empty')
 				local project_name=$(docker inspect "$c" | jq -r '.[0].Config.Labels["com.docker.compose.project"] // empty')
 
@@ -4677,7 +4679,7 @@ docker_ssh_migration() {
 
 				# 如果该 Compose 项目已经打包过，跳过
 				if [[ -n "${PACKED_COMPOSE_PATHS[$project_dir]}" ]]; then
-					echo -e "${gl_huang}Compose 项目 [$project_name] 已备份过，跳过重复打包...${gl_bai}"
+					echo -e "${Yellow}Compose 项目 [$project_name] 已备份过，跳过重复打包...${White}"
 					continue
 				fi
 
@@ -4688,9 +4690,9 @@ docker_ssh_migration() {
 					echo "# docker-compose 恢复: $project_name" >> "$RESTORE_SCRIPT"
 					echo "cd \"$project_dir\" && docker compose up -d" >> "$RESTORE_SCRIPT"
 					PACKED_COMPOSE_PATHS["$project_dir"]=1
-					echo -e "${gl_lv}Compose 项目 [$project_name] 已打包: ${project_dir}${gl_bai}"
+					echo -e "${Green}Compose 项目 [$project_name] 已打包: ${project_dir}${White}"
 				else
-					echo -e "${gl_hong}未找到 docker-compose.yml，跳过此容器...${gl_bai}"
+					echo -e "${Red}未找到 docker-compose.yml，跳过此容器...${White}"
 				fi
 			else
 				# 普通容器备份卷
@@ -4727,14 +4729,14 @@ docker_ssh_migration() {
 
 		# 备份 /home/docker 下的所有文件（不含子目录）
 		if [ -d "/home/docker" ]; then
-			echo -e "${gl_kjlan}备份 /home/docker 下的文件...${gl_bai}"
+			echo -e "${LightBlue}备份 /home/docker 下的文件...${White}"
 			find /home/docker -maxdepth 1 -type f | tar -czf "${BACKUP_DIR}/home_docker_files.tar.gz" -T -
-			echo -e "${gl_lv}/home/docker 下的文件已打包到: ${BACKUP_DIR}/home_docker_files.tar.gz${gl_bai}"
+			echo -e "${Green}/home/docker 下的文件已打包到: ${BACKUP_DIR}/home_docker_files.tar.gz${White}"
 		fi
 
 		chmod +x "$RESTORE_SCRIPT"
-		echo -e "${gl_lv}备份完成: ${BACKUP_DIR}${gl_bai}"
-		echo -e "${gl_lv}可用还原脚本: ${RESTORE_SCRIPT}${gl_bai}"
+		echo -e "${Green}备份完成: ${BACKUP_DIR}${White}"
+		echo -e "${Green}可用还原脚本: ${RESTORE_SCRIPT}${White}"
 
 
 	}
@@ -4743,12 +4745,10 @@ docker_ssh_migration() {
 	# 还原
 	# ----------------------------
 	restore_docker() {
-
-		send_stats "Docker还原"
 		read -e -p  "请输入要还原的备份目录: " BACKUP_DIR
-		[[ ! -d "$BACKUP_DIR" ]] && { echo -e "${gl_hong}备份目录不存在${gl_bai}"; return; }
+		[[ ! -d "$BACKUP_DIR" ]] && { echo -e "${Red}备份目录不存在${White}"; return; }
 
-		echo -e "${gl_kjlan}开始执行还原操作...${gl_bai}"
+		echo -e "${LightBlue}开始执行还原操作...${White}"
 
 		install tar jq gzip
 		install_docker
@@ -4765,7 +4765,7 @@ docker_ssh_migration() {
 				# 检查该 compose 项目的容器是否已经在运行
 				running_count=$(docker ps --filter "label=com.docker.compose.project=$project_name" --format '{{.Names}}' | wc -l)
 				if [[ "$running_count" -gt 0 ]]; then
-					echo -e "${gl_huang}Compose 项目 [$project_name] 已有容器在运行，跳过还原...${gl_bai}"
+					echo -e "${Yellow}Compose 项目 [$project_name] 已有容器在运行，跳过还原...${White}"
 					continue
 				fi
 
@@ -4774,32 +4774,32 @@ docker_ssh_migration() {
 
 				mkdir -p "$original_path"
 				tar -xzf "$BACKUP_DIR/compose_project_${project_name}.tar.gz" -C "$original_path"
-				echo -e "${gl_lv}Compose 项目 [$project_name] 已解压到: $original_path${gl_bai}"
+				echo -e "${Green}Compose 项目 [$project_name] 已解压到: $original_path${White}"
 
 				cd "$original_path" || return
 				docker compose down || true
 				docker compose up -d
-				echo -e "${gl_lv}Compose 项目 [$project_name] 还原完成！${gl_bai}"
+				echo -e "${Green}Compose 项目 [$project_name] 还原完成！${White}"
 			fi
 		done
 
 		# --------- 继续还原普通容器 ---------
-		echo -e "${gl_kjlan}检查并还原普通 Docker 容器...${gl_bai}"
+		echo -e "${LightBlue}检查并还原普通 Docker 容器...${White}"
 		local has_container=false
 		for json in "$BACKUP_DIR"/*_inspect.json; do
 			[[ ! -f "$json" ]] && continue
 			has_container=true
 			container=$(basename "$json" | sed 's/_inspect.json//')
-			echo -e "${gl_lv}处理容器: $container${gl_bai}"
+			echo -e "${Green}处理容器: $container${White}"
 
 			# 检查容器是否已经存在且正在运行
 			if docker ps --format '{{.Names}}' | grep -q "^${container}$"; then
-				echo -e "${gl_huang}容器 [$container] 已在运行，跳过还原...${gl_bai}"
+				echo -e "${Yellow}容器 [$container] 已在运行，跳过还原...${White}"
 				continue
 			fi
 
 			IMAGE=$(jq -r '.[0].Config.Image' "$json")
-			[[ -z "$IMAGE" || "$IMAGE" == "null" ]] && { echo -e "${gl_hong}未找到镜像信息，跳过: $container${gl_bai}"; continue; }
+			[[ -z "$IMAGE" || "$IMAGE" == "null" ]] && { echo -e "${Red}未找到镜像信息，跳过: $container${White}"; continue; }
 
 			# 端口映射
 			PORT_ARGS=""
@@ -4833,7 +4833,7 @@ docker_ssh_migration() {
 
 			# 删除已存在但未运行的容器
 			if docker ps -a --format '{{.Names}}' | grep -q "^${container}$"; then
-				echo -e "${gl_huang}容器 [$container] 存在但未运行，删除旧容器...${gl_bai}"
+				echo -e "${Yellow}容器 [$container] 存在但未运行，删除旧容器...${White}"
 				docker rm -f "$container"
 			fi
 
@@ -4842,16 +4842,16 @@ docker_ssh_migration() {
 			eval "docker run -d --name \"$container\" $PORT_ARGS $VOL_ARGS $ENV_ARGS \"$IMAGE\""
 		done
 
-		[[ "$has_container" == false ]] && echo -e "${gl_huang}未找到普通容器的备份信息${gl_bai}"
+		[[ "$has_container" == false ]] && echo -e "${Yellow}未找到普通容器的备份信息${White}"
 
 		# 还原 /home/docker 下的文件
 		if [ -f "$BACKUP_DIR/home_docker_files.tar.gz" ]; then
-			echo -e "${gl_kjlan}正在还原 /home/docker 下的文件...${gl_bai}"
+			echo -e "${LightBlue}正在还原 /home/docker 下的文件...${White}"
 			mkdir -p /home/docker
 			tar -xzf "$BACKUP_DIR/home_docker_files.tar.gz" -C /
-			echo -e "${gl_lv}/home/docker 下的文件已还原完成${gl_bai}"
+			echo -e "${Green}/home/docker 下的文件已还原完成${White}"
 		else
-			echo -e "${gl_huang}未找到 /home/docker 下文件的备份，跳过...${gl_bai}"
+			echo -e "${Yellow}未找到 /home/docker 下文件的备份，跳过...${White}"
 		fi
 
 
@@ -4862,10 +4862,9 @@ docker_ssh_migration() {
 	# 迁移
 	# ----------------------------
 	migrate_docker() {
-		send_stats "Docker迁移"
 		install jq
 		read -e -p  "请输入要迁移的备份目录: " BACKUP_DIR
-		[[ ! -d "$BACKUP_DIR" ]] && { echo -e "${gl_hong}备份目录不存在${gl_bai}"; return; }
+		[[ ! -d "$BACKUP_DIR" ]] && { echo -e "${Red}备份目录不存在${White}"; return; }
 
 		read -e -p  "目标服务器IP: " TARGET_IP
 		read -e -p  "目标服务器SSH用户名: " TARGET_USER
@@ -4874,7 +4873,7 @@ docker_ssh_migration() {
 
 		local LATEST_TAR="$BACKUP_DIR"
 
-		echo -e "${gl_huang}传输备份中...${gl_bai}"
+		echo -e "${Yellow}传输备份中...${White}"
 		if [[ -z "$TARGET_PASS" ]]; then
 			# 使用密钥登录
 			scp -P "$TARGET_PORT" -o StrictHostKeyChecking=no -r "$LATEST_TAR" "$TARGET_USER@$TARGET_IP:/tmp/"
@@ -4886,18 +4885,16 @@ docker_ssh_migration() {
 	# 删除备份
 	# ----------------------------
 	delete_backup() {
-		send_stats "Docker备份文件删除"
 		read -e -p  "请输入要删除的备份目录: " BACKUP_DIR
-		[[ ! -d "$BACKUP_DIR" ]] && { echo -e "${gl_hong}备份目录不存在${gl_bai}"; return; }
+		[[ ! -d "$BACKUP_DIR" ]] && { echo -e "${Red}备份目录不存在${White}"; return; }
 		rm -rf "$BACKUP_DIR"
-		echo -e "${gl_lv}已删除备份: ${BACKUP_DIR}${gl_bai}"
+		echo -e "${Green}已删除备份: ${BACKUP_DIR}${White}"
 	}
 
 	# ----------------------------
 	# 主菜单
 	# ----------------------------
 	main_menu() {
-		send_stats "Docker备份迁移还原"
 		while true; do
 			clear
 			echo "------------------------"
@@ -4920,7 +4917,7 @@ docker_ssh_migration() {
 				3) restore_docker ;;
 				4) delete_backup ;;
 				0) return ;;
-				*) echo -e "${gl_hong}无效选项${gl_bai}" ;;
+				*) echo -e "${Red}无效选项${White}" ;;
 			esac
 		break_end
 		done
