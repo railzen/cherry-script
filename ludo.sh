@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-main_version="V1.1.39 Build260201"
+main_version="V1.1.40 Build260205"
 work_path="/opt/CherryScript"
 
 main_menu_start() {
@@ -3579,7 +3579,9 @@ docker_mng_menu() {
 	echo "6. Dcoker卷管理 ▶"
 	echo "------------------------"
 	echo "7. 清理无用的docker容器和镜像网络数据卷"
+	echo "8. 更换Docker源"
 	echo "------------------------"
+	echo "19. 备份/迁移/还原Docker环境"
 	echo "20. 卸载Docker环境"
 	echo "------------------------"
 	echo "0. 返回主菜单"
@@ -3890,6 +3892,14 @@ docker_mng_menu() {
 			echo "无效的选择，请输入 Y 或 N。"
 			;;
 		esac
+		;;
+	8)
+		clear
+		send_stats "Docker源"
+		bash <(curl -sSL https://linuxmirrors.cn/docker.sh)
+		;;
+	19)
+		docker_ssh_migration
 		;;
 	20)
 		clear
@@ -4600,6 +4610,326 @@ linux_clean() {
 	fi
 
 }
+
+
+docker_ssh_migration() {
+
+	is_compose_container() {
+		local container=$1
+		docker inspect "$container" | jq -e '.[0].Config.Labels["com.docker.compose.project"]' >/dev/null 2>&1
+	}
+
+	list_backups() {
+		local BACKUP_ROOT="/tmp"
+		echo -e "${gl_kjlan}当前备份列表:${gl_bai}"
+		ls -1dt ${BACKUP_ROOT}/docker_backup_* 2>/dev/null || echo "无备份"
+	}
+
+
+
+	# ----------------------------
+	# 备份
+	# ----------------------------
+	backup_docker() {
+		send_stats "Docker备份"
+
+		echo -e "${gl_kjlan}正在备份 Docker 容器...${gl_bai}"
+		docker ps --format '{{.Names}}'
+		read -e -p  "请输入要备份的容器名（多个空格分隔，回车备份全部运行中容器）: " containers
+
+		install tar jq gzip
+		install_docker
+
+		local BACKUP_ROOT="/tmp"
+		local DATE_STR=$(date +%Y%m%d_%H%M%S)
+		local TARGET_CONTAINERS=()
+		if [ -z "$containers" ]; then
+			mapfile -t TARGET_CONTAINERS < <(docker ps --format '{{.Names}}')
+		else
+			read -ra TARGET_CONTAINERS <<< "$containers"
+		fi
+		[[ ${#TARGET_CONTAINERS[@]} -eq 0 ]] && { echo -e "${gl_hong}没有找到容器${gl_bai}"; return; }
+
+		local BACKUP_DIR="${BACKUP_ROOT}/docker_backup_${DATE_STR}"
+		mkdir -p "$BACKUP_DIR"
+
+		local RESTORE_SCRIPT="${BACKUP_DIR}/docker_restore.sh"
+		echo "#!/bin/bash" > "$RESTORE_SCRIPT"
+		echo "set -e" >> "$RESTORE_SCRIPT"
+		echo "# 自动生成的还原脚本" >> "$RESTORE_SCRIPT"
+
+		# 记录已打包过的 Compose 项目路径，避免重复打包
+		declare -A PACKED_COMPOSE_PATHS=()
+
+		for c in "${TARGET_CONTAINERS[@]}"; do
+			echo -e "${gl_lv}备份容器: $c${gl_bai}"
+			local inspect_file="${BACKUP_DIR}/${c}_inspect.json"
+			docker inspect "$c" > "$inspect_file"
+
+			if is_compose_container "$c"; then
+				echo -e "${gl_kjlan}检测到 $c 是 docker-compose 容器${gl_bai}"
+				local project_dir=$(docker inspect "$c" | jq -r '.[0].Config.Labels["com.docker.compose.project.working_dir"] // empty')
+				local project_name=$(docker inspect "$c" | jq -r '.[0].Config.Labels["com.docker.compose.project"] // empty')
+
+				if [ -z "$project_dir" ]; then
+					read -e -p  "未检测到 compose 目录，请手动输入路径: " project_dir
+				fi
+
+				# 如果该 Compose 项目已经打包过，跳过
+				if [[ -n "${PACKED_COMPOSE_PATHS[$project_dir]}" ]]; then
+					echo -e "${gl_huang}Compose 项目 [$project_name] 已备份过，跳过重复打包...${gl_bai}"
+					continue
+				fi
+
+				if [ -f "$project_dir/docker-compose.yml" ]; then
+					echo "compose" > "${BACKUP_DIR}/backup_type_${project_name}"
+					echo "$project_dir" > "${BACKUP_DIR}/compose_path_${project_name}.txt"
+					tar -czf "${BACKUP_DIR}/compose_project_${project_name}.tar.gz" -C "$project_dir" .
+					echo "# docker-compose 恢复: $project_name" >> "$RESTORE_SCRIPT"
+					echo "cd \"$project_dir\" && docker compose up -d" >> "$RESTORE_SCRIPT"
+					PACKED_COMPOSE_PATHS["$project_dir"]=1
+					echo -e "${gl_lv}Compose 项目 [$project_name] 已打包: ${project_dir}${gl_bai}"
+				else
+					echo -e "${gl_hong}未找到 docker-compose.yml，跳过此容器...${gl_bai}"
+				fi
+			else
+				# 普通容器备份卷
+				local VOL_PATHS
+				VOL_PATHS=$(docker inspect "$c" --format '{{range .Mounts}}{{.Source}} {{end}}')
+				for path in $VOL_PATHS; do
+					echo "打包卷: $path"
+					tar -czpf "${BACKUP_DIR}/${c}_$(basename $path).tar.gz" -C / "$(echo $path | sed 's/^\///')"
+				done
+
+				# 端口
+				local PORT_ARGS=""
+				mapfile -t PORTS < <(jq -r '.[0].HostConfig.PortBindings | to_entries[] | "\(.value[0].HostPort):\(.key | split("/")[0])"' "$inspect_file" 2>/dev/null)
+				for p in "${PORTS[@]}"; do PORT_ARGS+="-p $p "; done
+
+				# 环境变量
+				local ENV_VARS=""
+				mapfile -t ENVS < <(jq -r '.[0].Config.Env[] | @sh' "$inspect_file")
+				for e in "${ENVS[@]}"; do ENV_VARS+="-e $e "; done
+
+				# 卷映射
+				local VOL_ARGS=""
+				for path in $VOL_PATHS; do VOL_ARGS+="-v $path:$path "; done
+
+				# 镜像
+				local IMAGE
+				IMAGE=$(jq -r '.[0].Config.Image' "$inspect_file")
+
+				echo -e "\n# 还原容器: $c" >> "$RESTORE_SCRIPT"
+				echo "docker run -d --name $c $PORT_ARGS $VOL_ARGS $ENV_VARS $IMAGE" >> "$RESTORE_SCRIPT"
+			fi
+		done
+
+
+		# 备份 /home/docker 下的所有文件（不含子目录）
+		if [ -d "/home/docker" ]; then
+			echo -e "${gl_kjlan}备份 /home/docker 下的文件...${gl_bai}"
+			find /home/docker -maxdepth 1 -type f | tar -czf "${BACKUP_DIR}/home_docker_files.tar.gz" -T -
+			echo -e "${gl_lv}/home/docker 下的文件已打包到: ${BACKUP_DIR}/home_docker_files.tar.gz${gl_bai}"
+		fi
+
+		chmod +x "$RESTORE_SCRIPT"
+		echo -e "${gl_lv}备份完成: ${BACKUP_DIR}${gl_bai}"
+		echo -e "${gl_lv}可用还原脚本: ${RESTORE_SCRIPT}${gl_bai}"
+
+
+	}
+
+	# ----------------------------
+	# 还原
+	# ----------------------------
+	restore_docker() {
+
+		send_stats "Docker还原"
+		read -e -p  "请输入要还原的备份目录: " BACKUP_DIR
+		[[ ! -d "$BACKUP_DIR" ]] && { echo -e "${gl_hong}备份目录不存在${gl_bai}"; return; }
+
+		echo -e "${gl_kjlan}开始执行还原操作...${gl_bai}"
+
+		install tar jq gzip
+		install_docker
+
+		# --------- 优先还原 Compose 项目 ---------
+		for f in "$BACKUP_DIR"/backup_type_*; do
+			[[ ! -f "$f" ]] && continue
+			if grep -q "compose" "$f"; then
+				project_name=$(basename "$f" | sed 's/backup_type_//')
+				path_file="$BACKUP_DIR/compose_path_${project_name}.txt"
+				[[ -f "$path_file" ]] && original_path=$(cat "$path_file") || original_path=""
+				[[ -z "$original_path" ]] && read -e -p  "未找到原始路径，请输入还原目录路径: " original_path
+
+				# 检查该 compose 项目的容器是否已经在运行
+				running_count=$(docker ps --filter "label=com.docker.compose.project=$project_name" --format '{{.Names}}' | wc -l)
+				if [[ "$running_count" -gt 0 ]]; then
+					echo -e "${gl_huang}Compose 项目 [$project_name] 已有容器在运行，跳过还原...${gl_bai}"
+					continue
+				fi
+
+				read -e -p  "确认还原 Compose 项目 [$project_name] 到路径 [$original_path] ? (y/n): " confirm
+				[[ "$confirm" != "y" ]] && read -e -p  "请输入新的还原路径: " original_path
+
+				mkdir -p "$original_path"
+				tar -xzf "$BACKUP_DIR/compose_project_${project_name}.tar.gz" -C "$original_path"
+				echo -e "${gl_lv}Compose 项目 [$project_name] 已解压到: $original_path${gl_bai}"
+
+				cd "$original_path" || return
+				docker compose down || true
+				docker compose up -d
+				echo -e "${gl_lv}Compose 项目 [$project_name] 还原完成！${gl_bai}"
+			fi
+		done
+
+		# --------- 继续还原普通容器 ---------
+		echo -e "${gl_kjlan}检查并还原普通 Docker 容器...${gl_bai}"
+		local has_container=false
+		for json in "$BACKUP_DIR"/*_inspect.json; do
+			[[ ! -f "$json" ]] && continue
+			has_container=true
+			container=$(basename "$json" | sed 's/_inspect.json//')
+			echo -e "${gl_lv}处理容器: $container${gl_bai}"
+
+			# 检查容器是否已经存在且正在运行
+			if docker ps --format '{{.Names}}' | grep -q "^${container}$"; then
+				echo -e "${gl_huang}容器 [$container] 已在运行，跳过还原...${gl_bai}"
+				continue
+			fi
+
+			IMAGE=$(jq -r '.[0].Config.Image' "$json")
+			[[ -z "$IMAGE" || "$IMAGE" == "null" ]] && { echo -e "${gl_hong}未找到镜像信息，跳过: $container${gl_bai}"; continue; }
+
+			# 端口映射
+			PORT_ARGS=""
+			mapfile -t PORTS < <(jq -r '.[0].HostConfig.PortBindings | to_entries[]? | "\(.value[0].HostPort):\(.key | split("/")[0])"' "$json")
+			for p in "${PORTS[@]}"; do
+				[[ -n "$p" ]] && PORT_ARGS="$PORT_ARGS -p $p"
+			done
+
+			# 环境变量
+			ENV_ARGS=""
+			mapfile -t ENVS < <(jq -r '.[0].Config.Env[]' "$json")
+			for e in "${ENVS[@]}"; do
+				ENV_ARGS="$ENV_ARGS -e \"$e\""
+			done
+
+			# 卷映射 + 卷数据恢复
+			VOL_ARGS=""
+			mapfile -t VOLS < <(jq -r '.[0].Mounts[] | "\(.Source):\(.Destination)"' "$json")
+			for v in "${VOLS[@]}"; do
+				VOL_SRC=$(echo "$v" | cut -d':' -f1)
+				VOL_DST=$(echo "$v" | cut -d':' -f2)
+				mkdir -p "$VOL_SRC"
+				VOL_ARGS="$VOL_ARGS -v $VOL_SRC:$VOL_DST"
+
+				VOL_FILE="$BACKUP_DIR/${container}_$(basename $VOL_SRC).tar.gz"
+				if [[ -f "$VOL_FILE" ]]; then
+					echo "恢复卷数据: $VOL_SRC"
+					tar -xzf "$VOL_FILE" -C /
+				fi
+			done
+
+			# 删除已存在但未运行的容器
+			if docker ps -a --format '{{.Names}}' | grep -q "^${container}$"; then
+				echo -e "${gl_huang}容器 [$container] 存在但未运行，删除旧容器...${gl_bai}"
+				docker rm -f "$container"
+			fi
+
+			# 启动容器
+			echo "执行还原命令: docker run -d --name \"$container\" $PORT_ARGS $VOL_ARGS $ENV_ARGS \"$IMAGE\""
+			eval "docker run -d --name \"$container\" $PORT_ARGS $VOL_ARGS $ENV_ARGS \"$IMAGE\""
+		done
+
+		[[ "$has_container" == false ]] && echo -e "${gl_huang}未找到普通容器的备份信息${gl_bai}"
+
+		# 还原 /home/docker 下的文件
+		if [ -f "$BACKUP_DIR/home_docker_files.tar.gz" ]; then
+			echo -e "${gl_kjlan}正在还原 /home/docker 下的文件...${gl_bai}"
+			mkdir -p /home/docker
+			tar -xzf "$BACKUP_DIR/home_docker_files.tar.gz" -C /
+			echo -e "${gl_lv}/home/docker 下的文件已还原完成${gl_bai}"
+		else
+			echo -e "${gl_huang}未找到 /home/docker 下文件的备份，跳过...${gl_bai}"
+		fi
+
+
+	}
+
+
+	# ----------------------------
+	# 迁移
+	# ----------------------------
+	migrate_docker() {
+		send_stats "Docker迁移"
+		install jq
+		read -e -p  "请输入要迁移的备份目录: " BACKUP_DIR
+		[[ ! -d "$BACKUP_DIR" ]] && { echo -e "${gl_hong}备份目录不存在${gl_bai}"; return; }
+
+		read -e -p  "目标服务器IP: " TARGET_IP
+		read -e -p  "目标服务器SSH用户名: " TARGET_USER
+		read -e -p "目标服务器SSH端口 [默认22]: " TARGET_PORT
+		local TARGET_PORT=${TARGET_PORT:-22}
+
+		local LATEST_TAR="$BACKUP_DIR"
+
+		echo -e "${gl_huang}传输备份中...${gl_bai}"
+		if [[ -z "$TARGET_PASS" ]]; then
+			# 使用密钥登录
+			scp -P "$TARGET_PORT" -o StrictHostKeyChecking=no -r "$LATEST_TAR" "$TARGET_USER@$TARGET_IP:/tmp/"
+		fi
+
+	}
+
+	# ----------------------------
+	# 删除备份
+	# ----------------------------
+	delete_backup() {
+		send_stats "Docker备份文件删除"
+		read -e -p  "请输入要删除的备份目录: " BACKUP_DIR
+		[[ ! -d "$BACKUP_DIR" ]] && { echo -e "${gl_hong}备份目录不存在${gl_bai}"; return; }
+		rm -rf "$BACKUP_DIR"
+		echo -e "${gl_lv}已删除备份: ${BACKUP_DIR}${gl_bai}"
+	}
+
+	# ----------------------------
+	# 主菜单
+	# ----------------------------
+	main_menu() {
+		send_stats "Docker备份迁移还原"
+		while true; do
+			clear
+			echo "------------------------"
+			echo -e "Docker备份/迁移/还原工具"
+			echo "------------------------"
+			list_backups
+			echo -e ""
+			echo "------------------------"
+			echo -e "1. 备份docker项目"
+			echo -e "2. 迁移docker项目"
+			echo -e "3. 还原docker项目"
+			echo -e "4. 删除docker项目的备份文件"
+			echo "------------------------"
+			echo -e "0. 返回上一级选单"
+			echo "------------------------"
+			read -e -p  "请选择: " choice
+			case $choice in
+				1) backup_docker ;;
+				2) migrate_docker ;;
+				3) restore_docker ;;
+				4) delete_backup ;;
+				0) return ;;
+				*) echo -e "${gl_hong}无效选项${gl_bai}" ;;
+			esac
+		break_end
+		done
+	}
+
+	main_menu
+}
+
+
 
 config_new_ssh_port() {
 	# 备份 SSH 配置文件
