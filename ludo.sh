@@ -1342,7 +1342,6 @@ system_tools_menu() {
 				;;
 
 			3)
-				openipv6 >/dev/null 2>&1
 				restore_ip46
 				enable_ipv6
 				echo "已启用 IPv6,可能需要重启！"
@@ -1351,7 +1350,6 @@ system_tools_menu() {
 
 			4)
 				restore_ip46
-				closeipv6 >/dev/null 2>&1
 				disable_ipv6
 				echo "已禁用 IPv6,可能需要重启！"
 				echo
@@ -3995,6 +3993,15 @@ enable_ipv6() {
 		modprobe ipv6 >/dev/null 2>&1 || true
 	fi
 
+	sed -i '/net.ipv6.conf.all.disable_ipv6/d' /etc/sysctl.d/99-sysctl.conf
+	sed -i '/net.ipv6.conf.default.disable_ipv6/d' /etc/sysctl.d/99-sysctl.conf
+	sed -i '/net.ipv6.conf.lo.disable_ipv6/d' /etc/sysctl.d/99-sysctl.conf
+	sed -i '/net.ipv6.conf.all.disable_ipv6/d' /etc/sysctl.conf
+	sed -i '/net.ipv6.conf.default.disable_ipv6/d' /etc/sysctl.conf
+	sed -i '/net.ipv6.conf.lo.disable_ipv6/d' /etc/sysctl.conf
+	sed -i '/net.ipv6.conf.all.accept_ra/d' /etc/sysctl.conf
+	sed -i '/net.ipv6.conf.default.accept_ra/d' /etc/sysctl.conf
+
 	for interface in "${interfaces[@]}"; do
 		echo "net.ipv6.conf.${interface}.disable_ipv6=0 $MARK" >>$SYSCTLCONF
 	done
@@ -4003,6 +4010,9 @@ enable_ipv6() {
 		[[ -e "$f" ]] || continue
 		echo 0 >"$f" 2>/dev/null || true
 	done
+
+	echo "net.ipv6.conf.all.accept_ra = 2
+net.ipv6.conf.default.accept_ra = 2" >>/etc/sysctl.d/99-sysctl.conf
 
 	resolvectl flush-caches >/dev/null 2>&1 || true
 	reload_sysctl
@@ -4025,11 +4035,19 @@ enable_ipv6() {
 }
 
 disable_ipv6() {
+	sed -i '/net.ipv6.conf.all.disable_ipv6/d' /etc/sysctl.d/99-sysctl.conf
+	sed -i '/net.ipv6.conf.default.disable_ipv6/d' /etc/sysctl.d/99-sysctl.conf
+	sed -i '/net.ipv6.conf.lo.disable_ipv6/d' /etc/sysctl.d/99-sysctl.conf
+	sed -i '/net.ipv6.conf.all.disable_ipv6/d' /etc/sysctl.conf
+	sed -i '/net.ipv6.conf.default.disable_ipv6/d' /etc/sysctl.conf
+	sed -i '/net.ipv6.conf.lo.disable_ipv6/d' /etc/sysctl.conf
 	for interface in "${interfaces[@]}"; do
 		echo "net.ipv6.conf.${interface}.disable_ipv6=1 $MARK" >>$SYSCTLCONF
+		echo "net.ipv6.conf.${interface}.disable_ipv6=1 $MARK" >>/etc/sysctl.d/99-sysctl.conf
 	done
 	reload_sysctl
 }
+
 
 # 结束IPV6优先级的函数部分[/TAG279]
 
@@ -4154,43 +4172,6 @@ back_main() {
 	exit
 }
 
-#禁用IPv6
-closeipv6() {
-	clear
-	sed -i '/net.ipv6.conf.all.disable_ipv6/d' /etc/sysctl.d/99-sysctl.conf
-	sed -i '/net.ipv6.conf.default.disable_ipv6/d' /etc/sysctl.d/99-sysctl.conf
-	sed -i '/net.ipv6.conf.lo.disable_ipv6/d' /etc/sysctl.d/99-sysctl.conf
-	sed -i '/net.ipv6.conf.all.disable_ipv6/d' /etc/sysctl.conf
-	sed -i '/net.ipv6.conf.default.disable_ipv6/d' /etc/sysctl.conf
-	sed -i '/net.ipv6.conf.lo.disable_ipv6/d' /etc/sysctl.conf
-
-	echo "net.ipv6.conf.all.disable_ipv6 = 1
-net.ipv6.conf.default.disable_ipv6 = 1
-net.ipv6.conf.lo.disable_ipv6 = 1" >>/etc/sysctl.d/99-sysctl.conf
-	sysctl --system
-	#  echo -e "${Info}禁用IPv6结束，可能需要重启！"
-}
-
-#开启IPv6
-openipv6() {
-	clear
-	sed -i '/net.ipv6.conf.all.disable_ipv6/d' /etc/sysctl.d/99-sysctl.conf
-	sed -i '/net.ipv6.conf.default.disable_ipv6/d' /etc/sysctl.d/99-sysctl.conf
-	sed -i '/net.ipv6.conf.lo.disable_ipv6/d' /etc/sysctl.d/99-sysctl.conf
-	sed -i '/net.ipv6.conf.all.disable_ipv6/d' /etc/sysctl.conf
-	sed -i '/net.ipv6.conf.default.disable_ipv6/d' /etc/sysctl.conf
-	sed -i '/net.ipv6.conf.lo.disable_ipv6/d' /etc/sysctl.conf
-	sed -i '/net.ipv6.conf.all.accept_ra/d' /etc/sysctl.conf
-	sed -i '/net.ipv6.conf.default.accept_ra/d' /etc/sysctl.conf
-
-	echo "net.ipv6.conf.all.disable_ipv6 = 0
-net.ipv6.conf.default.disable_ipv6 = 0
-net.ipv6.conf.lo.disable_ipv6 = 0
-net.ipv6.conf.all.accept_ra = 2
-net.ipv6.conf.default.accept_ra = 2" >>/etc/sysctl.d/99-sysctl.conf
-	sysctl --system
-	#  echo -e "${Info}开启IPv6结束，可能需要重启！"
-}
 
 check_port() {
 	# 定义要检测的端口
