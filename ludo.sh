@@ -5209,8 +5209,14 @@ elif [[ ! $# = 0 && $1 = "restart" ]]; then
 	ls /etc/systemd/system | grep Cherry- | xargs systemctl restart
 	exit 0
 elif [[ ! $# = 0 && $1 = "edit" ]]; then
-	# 快速重启所有本脚本创建的服务，用于更新配置
 	vi $work_path/config/start.sh
+	exit 0
+elif [[ ! $# = 0 && $1 = "update" ]]; then
+	mkdir -p ${work_path} && cd ${work_path}/
+	curl -sS -O https://raw.githubusercontent.com/railzen/CherryScript/main/ludo.sh && chmod +x ludo.sh
+	rm -f /usr/local/bin/ludo
+	cp -f ${work_path}/ludo.sh /usr/local/bin/ludo >/dev/null 2>&1
+	echo -e "已更新版本! "
 	exit 0
 elif [[ ! $# = 0 && $1 = "sshkey" && -n "$2" ]]; then
 	add_sshkey "$2"
