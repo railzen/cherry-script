@@ -3974,20 +3974,20 @@ restore_ip46() {
 	fi
 }
 prefer_ipv4() {
-	touch -p $GAICONF &>/dev/null
-	echo "precedence ::ffff:0:0/96  100 $MARK" >>$GAICONF
-	sed -i '/^\s*precedence\s\+::ffff:0:0\/96\s\+[0-9]\+\s*$/d' "$GAICONF"
-	printf "\n# %s managed: prefer IPv4\nprecedence ::ffff:0:0/96  100\n" "$MARK" >>"$GAICONF"
-	restart_network
-}
-prefer_ipv6() {
-	touch -p $GAICONF &>/dev/null
-	echo "label 2002::/16   2 $MARK" >>$GAICONF
-	sed -i '/^\s*#\s*'"${MARK}"'\s*managed: prefer IPv4\s*$/d' "$GAICONF"
-	sed -i '/^\s*precedence\s\+::ffff:0:0\/96\s\+[0-9]\+\s*$/d' "$GAICONF"
-	restart_network
+    touch -p "$GAICONF" &>/dev/null
+    sed -i '/^\s*#\s*'"${MARK}"'\s*managed: prefer IPv4\s*$/d' "$GAICONF"
+    sed -i '/^\s*precedence\s\+::ffff:0:0\/96\s\+[0-9]\+.*$/d' "$GAICONF"
+    printf "\n# %s managed: prefer IPv4\nprecedence ::ffff:0:0/96  100\n" "$MARK" >>"$GAICONF"
+    restart_network
 }
 
+prefer_ipv6() {
+    touch -p "$GAICONF" &>/dev/null
+    sed -i '/^\s*#\s*'"${MARK}"'\s*managed: prefer IPv4\s*$/d' "$GAICONF"
+    sed -i '/^\s*precedence\s\+::ffff:0:0\/96\s\+[0-9]\+.*$/d' "$GAICONF"
+    printf "\n# %s managed: using system default (IPv6 preferred)\n" "$MARK" >>"$GAICONF"   
+    restart_network
+}
 ipv6_status() {
 	local a d
 	a="$(sysctl -n net.ipv6.conf.all.disable_ipv6 2>/dev/null || echo "N/A")"
