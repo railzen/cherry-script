@@ -1302,9 +1302,9 @@ system_tools_menu() {
 	10)
 		while true; do
 			root_use
-			ipv6_disabled=$(sysctl -n net.ipv6.conf.all.disable_ipv6)
+			# 检查是否设置了 IPv4 优先
 			echo ""
-			if [ "$ipv6_disabled" -eq 1 ]; then
+			if grep -q '^[^#]*precedence ::ffff:0:0/96  100' /etc/gai.conf 2>/dev/null; then
 				echo "当前网络优先级设置: IPv4 优先"
 			else
 				echo "当前网络优先级设置: IPv6 优先"
@@ -3952,7 +3952,7 @@ restart_network() {
 		systemctl restart networking >/dev/null 2>&1 || true
 	fi
 
-	sleep 2
+	sleep 1
 	systemctl restart networking >/dev/null 2>&1 || true
 	systemctl restart systemd-networkd >/dev/null 2>&1 || true
 	systemctl restart NetworkManager >/dev/null 2>&1 || true
