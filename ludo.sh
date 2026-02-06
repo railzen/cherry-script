@@ -3938,21 +3938,29 @@ reload_sysctl() {
 
 restart_network() {
 	echo -e "${Blue}正在重启网络服务...${White}"
-	# NetworkManager
-	if systemctl is-active --quiet NetworkManager; then
-		systemctl restart NetworkManager
-	# NetworkManager
-	# elif command -v nmcli >/dev/null 2>&1; then nmcli networking off && nmcli networking on
-	# CentOS/RedHat
-	elif systemctl is-active --quiet network; then
-		systemctl restart network
-	# Debian/Ubuntu
-	elif systemctl is-active --quiet networking; then
-		systemctl restart networking
-	else
-		echo -e "${Yellow}无法重启网络服务, 请手动重启${White}"
+
+	if systemctl is-active --quiet systemd-networkd 2>/dev/null; then
+		echo "重启：systemd-networkd"
+		systemctl restart systemd-networkd >/dev/null 2>&1 || true
 	fi
+	if systemctl is-active --quiet NetworkManager 2>/dev/null; then
+		echo "重启：NetworkManager"
+		systemctl restart NetworkManager >/dev/null 2>&1 || true
+	fi
+	if systemctl is-active --quiet networking 2>/dev/null; then
+		echo "重启：networking"
+		systemctl restart networking >/dev/null 2>&1 || true
+	fi
+
+	sleep 2
+	systemctl restart networking >/dev/null 2>&1 || true
+	systemctl restart systemd-networkd >/dev/null 2>&1 || true
+	systemctl restart NetworkManager >/dev/null 2>&1 || true
+	
+	echo -e "${Green}重启网络服务完成${White}"
+
 }
+
 have_cmd() { command -v "$1" >/dev/null 2>&1; }
 # = prefer IPv4/IPv6
 restore_ip46() {
@@ -3970,12 +3978,14 @@ prefer_ipv4() {
 	echo "precedence ::ffff:0:0/96  100 $MARK" >>$GAICONF
 	sed -i '/^\s*precedence\s\+::ffff:0:0\/96\s\+[0-9]\+\s*$/d' "$GAICONF"
 	printf "\n# %s managed: prefer IPv4\nprecedence ::ffff:0:0/96  100\n" "$MARK" >>"$GAICONF"
+	restart_network
 }
 prefer_ipv6() {
 	touch -p $GAICONF &>/dev/null
 	echo "label 2002::/16   2 $MARK" >>$GAICONF
 	sed -i '/^\s*#\s*'"${MARK}"'\s*managed: prefer IPv4\s*$/d' "$GAICONF"
 	sed -i '/^\s*precedence\s\+::ffff:0:0\/96\s\+[0-9]\+\s*$/d' "$GAICONF"
+	restart_network
 }
 
 ipv6_status() {
@@ -4011,16 +4021,28 @@ enable_ipv6() {
 		echo 0 >"$f" 2>/dev/null || true
 	done
 
-	echo "net.ipv6.conf.all.accept_ra = 2
-net.ipv6.conf.default.accept_ra = 2" >>/etc/sysctl.d/99-sysctl.conf
+	echo "net.ipv6.conf.all.accept_ra = 2 $MARK
+net.ipv6.conf.default.accept_ra = 2 $MARK
+net.ipv6.conf.all.autoconf=1 $MARK
+net.ipv6.conf.default.autoconf=1 $MARK" >>/etc/sysctl.conf
 
-	resolvectl flush-caches >/dev/null 2>&1 || true
-	reload_sysctl
-	restart_network
-	for f in /proc/sys/net/ipv6/conf/*/disable_ipv6; do
+	sysctl -w net.ipv6.conf.all.disable_ipv6=0 >/dev/null 2>&1 || true
+	sysctl -w net.ipv6.conf.default.disable_ipv6=0 >/dev/null 2>&1 || true
+	sysctl -w net.ipv6.conf.lo.disable_ipv6=0 >/dev/null 2>&1 || true
+	sysctl -w net.ipv6.conf.all.accept_ra=2 >/dev/null 2>&1 || true
+	sysctl -w net.ipv6.conf.default.accept_ra=2 >/dev/null 2>&1 || true
+	sysctl -w net.ipv6.conf.all.autoconf=1 >/dev/null 2>&1 || true
+	sysctl -w net.ipv6.conf.default.autoconf=1 >/dev/null 2>&1 || true
+  
+  	for f in /proc/sys/net/ipv6/conf/*/disable_ipv6; do
 		[[ -e "$f" ]] || continue
 		echo 0 >"$f" 2>/dev/null || true
 	done
+
+	reload_sysctl
+	restart_network
+	resolvectl flush-caches >/dev/null 2>&1 || true
+
 
 	local st
 	st="$(ipv6_status)"
