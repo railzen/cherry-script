@@ -1343,9 +1343,11 @@ system_tools_menu() {
 
 			3)
 				restore_ip46
+				prefer_ipv6
 				enable_ipv6
 				echo "已启用 IPv6,可能需要重启！"
 				echo
+				break_end
 				;;
 
 			4)
@@ -3937,7 +3939,7 @@ reload_sysctl() {
 }
 
 restart_network() {
-	echo -e "${Blue}正在重启网络服务...${White}"
+	echo -e "${LightBlue}正在重启网络服务...${White}"
 
 	if systemctl is-active --quiet systemd-networkd 2>/dev/null; then
 		echo "重启：systemd-networkd"
@@ -3978,7 +3980,6 @@ prefer_ipv4() {
     sed -i '/^\s*#\s*'"${MARK}"'\s*managed: prefer IPv4\s*$/d' "$GAICONF"
     sed -i '/^\s*precedence\s\+::ffff:0:0\/96\s\+[0-9]\+.*$/d' "$GAICONF"
     printf "\n# %s managed: prefer IPv4\nprecedence ::ffff:0:0/96  100\n" "$MARK" >>"$GAICONF"
-    restart_network
 }
 
 prefer_ipv6() {
@@ -3986,7 +3987,6 @@ prefer_ipv6() {
     sed -i '/^\s*#\s*'"${MARK}"'\s*managed: prefer IPv4\s*$/d' "$GAICONF"
     sed -i '/^\s*precedence\s\+::ffff:0:0\/96\s\+[0-9]\+.*$/d' "$GAICONF"
     printf "\n# %s managed: using system default (IPv6 preferred)\n" "$MARK" >>"$GAICONF"   
-    restart_network
 }
 ipv6_status() {
 	local a d
@@ -4003,36 +4003,21 @@ enable_ipv6() {
 		modprobe ipv6 >/dev/null 2>&1 || true
 	fi
 
-	sed -i '/net.ipv6.conf.all.disable_ipv6/d' /etc/sysctl.d/99-sysctl.conf
-	sed -i '/net.ipv6.conf.default.disable_ipv6/d' /etc/sysctl.d/99-sysctl.conf
-	sed -i '/net.ipv6.conf.lo.disable_ipv6/d' /etc/sysctl.d/99-sysctl.conf
 	sed -i '/net.ipv6.conf.all.disable_ipv6/d' /etc/sysctl.conf
 	sed -i '/net.ipv6.conf.default.disable_ipv6/d' /etc/sysctl.conf
 	sed -i '/net.ipv6.conf.lo.disable_ipv6/d' /etc/sysctl.conf
 	sed -i '/net.ipv6.conf.all.accept_ra/d' /etc/sysctl.conf
 	sed -i '/net.ipv6.conf.default.accept_ra/d' /etc/sysctl.conf
+	sed -i "/${MARK}/d" /etc/sysctl.conf
 
 	for interface in "${interfaces[@]}"; do
 		echo "net.ipv6.conf.${interface}.disable_ipv6=0 $MARK" >>$SYSCTLCONF
-	done
-
-	for f in /proc/sys/net/ipv6/conf/*/disable_ipv6; do
-		[[ -e "$f" ]] || continue
-		echo 0 >"$f" 2>/dev/null || true
 	done
 
 	echo "net.ipv6.conf.all.accept_ra = 2 $MARK
 net.ipv6.conf.default.accept_ra = 2 $MARK
 net.ipv6.conf.all.autoconf=1 $MARK
 net.ipv6.conf.default.autoconf=1 $MARK" >>/etc/sysctl.conf
-
-	sysctl -w net.ipv6.conf.all.disable_ipv6=0 >/dev/null 2>&1 || true
-	sysctl -w net.ipv6.conf.default.disable_ipv6=0 >/dev/null 2>&1 || true
-	sysctl -w net.ipv6.conf.lo.disable_ipv6=0 >/dev/null 2>&1 || true
-	sysctl -w net.ipv6.conf.all.accept_ra=2 >/dev/null 2>&1 || true
-	sysctl -w net.ipv6.conf.default.accept_ra=2 >/dev/null 2>&1 || true
-	sysctl -w net.ipv6.conf.all.autoconf=1 >/dev/null 2>&1 || true
-	sysctl -w net.ipv6.conf.default.autoconf=1 >/dev/null 2>&1 || true
   
   	for f in /proc/sys/net/ipv6/conf/*/disable_ipv6; do
 		[[ -e "$f" ]] || continue
@@ -4042,7 +4027,6 @@ net.ipv6.conf.default.autoconf=1 $MARK" >>/etc/sysctl.conf
 	reload_sysctl
 	restart_network
 	resolvectl flush-caches >/dev/null 2>&1 || true
-
 
 	local st
 	st="$(ipv6_status)"
@@ -4057,15 +4041,12 @@ net.ipv6.conf.default.autoconf=1 $MARK" >>/etc/sysctl.conf
 }
 
 disable_ipv6() {
-	sed -i '/net.ipv6.conf.all.disable_ipv6/d' /etc/sysctl.d/99-sysctl.conf
-	sed -i '/net.ipv6.conf.default.disable_ipv6/d' /etc/sysctl.d/99-sysctl.conf
-	sed -i '/net.ipv6.conf.lo.disable_ipv6/d' /etc/sysctl.d/99-sysctl.conf
 	sed -i '/net.ipv6.conf.all.disable_ipv6/d' /etc/sysctl.conf
 	sed -i '/net.ipv6.conf.default.disable_ipv6/d' /etc/sysctl.conf
 	sed -i '/net.ipv6.conf.lo.disable_ipv6/d' /etc/sysctl.conf
+	sed -i "/${MARK}/d" /etc/sysctl.conf
 	for interface in "${interfaces[@]}"; do
 		echo "net.ipv6.conf.${interface}.disable_ipv6=1 $MARK" >>$SYSCTLCONF
-		echo "net.ipv6.conf.${interface}.disable_ipv6=1 $MARK" >>/etc/sysctl.d/99-sysctl.conf
 	done
 	reload_sysctl
 }
