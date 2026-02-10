@@ -162,7 +162,7 @@ port_in_use() {
 
 delete_all() {
     echo "将删除所有规则并卸载服务"
-    read -p "确认？(y/N): " CONFIRM
+    read -p "确认？(y/N): " yn
     [[ -z "${yn}" ]] && yn="n"
 	if [[ ${yn} == [Yy] ]]; then
         systemctl stop Cherry-gost-forward 2>/dev/null
@@ -203,19 +203,18 @@ clear
 mkdir -p "$CONFIG_DIR"
 (command -v gost >/dev/null 2>&1) || install_gost
 [ ! -f "$CONFIG_FILE" ] && touch "$CONFIG_FILE"
-[ ! -f "$SERVICE_FILE" ] && generate_service
 generate_env
 
 while true; do
     menu
     read CHOICE
     case "$CHOICE" in
-        1) add_rule ; break_end; ;;
+        1) [ ! -f "$SERVICE_FILE" ] && generate_service; add_rule ; break_end; ;;
         2) list_rules ; break_end; ;;
         3) delete_rule ; break_end; ;;
         4) systemctl restart Cherry-gost-forward; echo "服务已重启" ; break_end; ;;
         5) delete_all ; break_end; ;;
         0) exit 0 ;;
-        *) echo "无效选项" ;;
+        *) echo "无效选项, 请重新输入：" ;;
     esac
 done
