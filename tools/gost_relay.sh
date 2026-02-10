@@ -44,19 +44,31 @@ After=network.target
 Type=simple
 EnvironmentFile=$ENV_FILE
 ExecStart=gost \$ARGS
-Restart=always
-RestartSec=3
+Restart=on-failure
+RestartSec=10
+StartLimitBurst=3
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-    systemctl daemon-reload
-    systemctl enable Cherry-gost-forward
-    systemctl start Cherry-gost-forward
-    echo "服务已生成并启动: Cherry-gost-forward"
+    echo "服务已安装: Cherry-gost-forward"
 }
 
+restart_gost_service(){
+# 调用函数并直接判断返回值
+local rule_count_local=$(count_rules)
+if [ $rule_count_local -gt 0 ]; then
+	sudo systemctl stop Cherry-gost-forward
+	sudo systemctl daemon-reload
+    sudo systemctl enable Cherry-gost-forward
+    sudo systemctl start Cherry-gost-forward
+    echo "当前规则数量: $rule_count_local"
+else
+    sudo systemctl stop Cherry-gost-forward
+    sudo systemctl disable Cherry-gost-forward
+fi
+}
 # ===========================
 # 校验函数
 # ===========================
@@ -90,6 +102,18 @@ parse_rule() {
     local RIP="${tmp%%:*}"
     local RPORT="${tmp##*:}"
     echo "$LPORT|$RIP|$RPORT"
+}
+
+count_rules() {
+    if [ ! -s "$CONFIG_FILE" ]; then
+        echo 0  # 返回 0，表示没有规则
+        return
+    fi
+    count=0
+    while IFS= read -r line; do
+        count=$((count+1))
+    done < "$CONFIG_FILE"
+    echo "$count"  # 输出规则数量
 }
 
 list_rules() {
@@ -130,7 +154,7 @@ add_rule() {
         echo "$RULE" >> "$CONFIG_FILE"
         echo "已添加规则: 本地 $LPORT : $RIP:$RPORT"
         generate_env
-        systemctl restart Cherry-gost-forward
+		restart_gost_service
         break
     done
 }
@@ -145,7 +169,7 @@ delete_rule() {
     sed -i "${ID}d" "$CONFIG_FILE"
     echo "已删除规则编号 $ID"
     generate_env
-    systemctl restart Cherry-gost-forward
+    restart_gost_service
 }
 
 have_cmd() { command -v "$1" >/dev/null 2>&1; }
@@ -183,13 +207,24 @@ break_end() {
 }
 menu() {
     echo "------------------------"
+    if [[ -e "$SERVICE_FILE" ]]; then
+		local status=`systemctl status Cherry-gost-forward | grep Active | awk '{print $3}' | cut -d "(" -f2 | cut -d ")" -f1`
+		if [[ "$status" == "running" ]]; then
+			echo -n "Gost: "
+			echo -e "${Green}Running${White}"
+		else
+			echo -n "Gost: "
+			echo -e "${Red}Stopped${White}"
+		fi
+	fi
     echo -e "GOST 管理脚本"
     echo "------------------------"
     echo "1. 添加转发规则"
     echo "2. 查看当前规则"
     echo "3. 删除单条规则"
-    echo "4. 重启服务"
-    echo "5. 卸载服务"
+    echo "4. 禁用服务"
+    echo "5. 重启服务"
+    echo "6. 卸载服务"
     echo "------------------------"
     echo "0. 退出"
     echo "------------------------"
@@ -212,8 +247,9 @@ while true; do
         1) [ ! -f "$SERVICE_FILE" ] && generate_service; add_rule ; break_end; ;;
         2) list_rules ; break_end; ;;
         3) delete_rule ; break_end; ;;
-        4) systemctl restart Cherry-gost-forward; echo "服务已重启" ; break_end; ;;
-        5) delete_all ; break_end; ;;
+        4) systemctl stop Cherry-gost-forward; systemctl disable Cherry-gost-forward ; echo "服务已禁用" ; break_end; ;;
+        5) restart_gost_service; echo "服务已重启" ; break_end; ;;
+        6) delete_all ; break_end; ;;
         0) exit 0 ;;
         *) echo "无效选项, 请重新输入：" ;;
     esac
