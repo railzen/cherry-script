@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-main_version="V1.1.40 Build260205"
+main_version="V1.1.41 Build260211"
 work_path="/opt/CherryScript"
 
 main_menu_start() {
@@ -26,11 +26,11 @@ main_menu_start() {
 		echo "6. Docker管理 ▶ "
 		echo "7. 功能脚本合集 ▶ "
 		echo "8. 面板安装合集 ▶ "
-		echo "9. SingBox脚本 ▶ "
+		echo "9. 端口转发工具 ▶ "
 		echo "10. 系统工具 ▶ "
 		echo "11. 安装Snell V4 ▶ "
 		echo "12. 安装Hysteria2 ▶ "
-		echo "13. 端口转发工具 ▶ "
+		echo "13. SingBox脚本 ▶ "
 		echo "14. 直接开启BBR "
 		echo "15. 安装脚本依赖 "
 		echo "------------------------"
@@ -691,10 +691,9 @@ WantedBy=multi-user.target' >/etc/systemd/system/Cherry-startup.service
 
 		9)
 			clear
-			curl -sS -O https://raw.githubusercontent.com/railzen/CherryScript/main/proxy/sing_box.sh && chmod +x sing_box.sh && ./sing_box.sh
+			curl -sS -O https://raw.githubusercontent.com/railzen/CherryScript/main/tools/gost_relay.sh && chmod +x gost_relay.sh && ./gost_relay.sh
 			back_main
 			;;
-
 
 		10)
 			while true; do
@@ -718,7 +717,8 @@ WantedBy=multi-user.target' >/etc/systemd/system/Cherry-startup.service
 
 		13)
 			clear
-			curl -sS -O https://raw.githubusercontent.com/railzen/CherryScript/main/tools/Nat_Manage.sh && chmod +x Nat_Manage.sh && ./Nat_Manage.sh
+			curl -sS -O https://raw.githubusercontent.com/railzen/CherryScript/main/proxy/sing_box.sh && chmod +x sing_box.sh && ./sing_box.sh
+			back_main
 			;;
 
 		14)
