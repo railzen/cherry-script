@@ -636,24 +636,23 @@ WantedBy=multi-user.target' >/etc/systemd/system/Cherry-startup.service
 					clear
 					new_swap=1024
 					add_swap
-					bash <(curl -sL bash.icu/gb5)
+					bash <(curl -sSL bash.icu/gb5)
 					;;
 				25)
 					clear
-					bash <(curl -Ls https://cdn.jsdelivr.net/gh/missuo/OpenAI-Checker/openai.sh)
+					bash <(curl -sSL https://cdn.jsdelivr.net/gh/missuo/OpenAI-Checker/openai.sh)
 					;;
 				26)
 					clear
-					bash <(curl -L -s check.unlock.media)
+					bash <(curl -sSL check.unlock.media)
 					;;
 				27)
 					clear
-					install wget
-					wget -qO- https://github.com/yeahwu/check/raw/main/check.sh | bash
+					bash <(curl -sSL https://github.com/yeahwu/check/raw/main/check.sh)
 					;;
 				28)
 					clear
-					bash <(curl -Ls IP.Check.Place)
+					bash <(curl -sSL IP.Check.Place)
 					;;
 				29)
 					clear
@@ -665,11 +664,11 @@ WantedBy=multi-user.target' >/etc/systemd/system/Cherry-startup.service
 					;;
 				32)
 					clear
-					curl -L https://gitlab.com/spiritysdx/za/-/raw/main/ecs.sh -o ecs.sh && chmod +x ecs.sh && bash ecs.sh
+					bash <(curl -sSL https://gitlab.com/spiritysdx/za/-/raw/main/ecs.sh)
 					;;
 				33)
 					clear
-					bash <(curl -sL https://run.NodeQuality.com)
+					bash <(curl -sSL https://run.NodeQuality.com)
 					;;
 				0)
 					back_main
@@ -691,7 +690,7 @@ WantedBy=multi-user.target' >/etc/systemd/system/Cherry-startup.service
 
 		9)
 			clear
-			curl -sS -O https://raw.githubusercontent.com/railzen/CherryScript/main/tools/gost_relay.sh && chmod +x gost_relay.sh && ./gost_relay.sh
+			bash <(curl -sSL https://raw.githubusercontent.com/railzen/CherryScript/main/tools/gost_relay.sh)
 			back_main
 			;;
 
@@ -702,22 +701,18 @@ WantedBy=multi-user.target' >/etc/systemd/system/Cherry-startup.service
 			;;
 
 		11)
-			#询问用户是否要安装Snell
-			#read -p "是否要进入Snell V4安装脚本？(y/n): " choice
-			#choice=y
-			#if [ "$choice" == "y" ]; then
 			clear
-			bash -c "$(curl -sL https://raw.githubusercontent.com/railzen/CherryScript/main/proxy/snell.sh)"
+			bash <(curl -sL https://raw.githubusercontent.com/railzen/CherryScript/main/proxy/snell.sh)
 			;;
 
 		12)
 			clear
-			curl -sS -O https://raw.githubusercontent.com/railzen/CherryScript/main/proxy/setup_hysteria.sh && chmod +x setup_hysteria.sh && ./setup_hysteria.sh
+			bash <(curl -sSL https://raw.githubusercontent.com/railzen/CherryScript/main/proxy/setup_hysteria.sh)
 			;;
 
 		13)
 			clear
-			curl -sS -O https://raw.githubusercontent.com/railzen/CherryScript/main/proxy/sing_box.sh && chmod +x sing_box.sh && ./sing_box.sh
+			bash <(curl -sSL https://raw.githubusercontent.com/railzen/CherryScript/main/proxy/sing_box.sh)
 			back_main
 			;;
 
