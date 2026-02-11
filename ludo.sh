@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-main_version="V1.1.41 Build260211"
+main_version="V1.1.42 Build260211"
 work_path="/opt/CherryScript"
 
 main_menu_start() {
@@ -94,7 +94,8 @@ main_menu_start() {
 				echo "14. fzf 全局搜索工具"
 				echo "15. frps 内网穿透工具"
 				echo "16. gost 转发隧道工具"
-				echo "17. ping 网络监测工具"
+				echo "17. startup 自动启动服务"
+				echo "18. ping 网络监测工具"
 				echo "------------------------"
 				echo "51. 安装指定工具"
 				echo "52. 卸载指定工具"
@@ -255,12 +256,52 @@ WantedBy=multi-user.target' >/etc/systemd/system/Cherry-frps.service
 					fi
 					;;
 				17)
+					root_use
+					echo "添加开机启动项"
+					echo "------------------------------------------------"
+					echo "将会生成一个系统服务以启动开机启动项，可在[${work_path}/config/start.sh]修改，请问是否要新增？"
+
+					read -p "确定继续吗？(Y/N): " choice
+					case "$choice" in
+					[Yy])
+						mkdir -p ${work_path}/config
+						if [ ! -f "${work_path}/config/start.sh" ]; then
+							echo "#!/usr/bin/env bash" >${work_path}/config/start.sh
+						fi
+
+						chmod +x ${work_path}/config/start.sh
+			echo '
+[Unit]
+Description= Cherry-startup
+After=network-online.target
+Wants=network-online.target systemd-networkd-wait-online.service
+[Service]
+LimitNOFILE=32767 
+Type=simple
+User=root
+Restart=on-failure
+RestartSec=5s
+ExecStartPre=/bin/sh -c 'ulimit -n 51200'
+ExecStart=/opt/CherryScript/config/start.sh
+[Install]
+WantedBy=multi-user.target' >/etc/systemd/system/Cherry-startup.service
+						systemctl enable --now Cherry-startup
+						;;
+					[Nn])
+						echo "已取消"
+						;;
+					*)
+						echo "无效的选择，请输入 Y 或 N。"
+						;;
+					esac
+
+					;;
+				18)
 					clear
 					install iputils-ping
 					clear
 					ping -V
 					;;
-
 
 				51)
 					clear
@@ -860,9 +901,8 @@ system_tools_menu() {
 	echo "22. fail2banSSH防御程序"
 	echo "23. 限流自动关机"
 	echo "24. 安装Python最新版"
-	echo "25. 添加开机启动服务"
+	echo "25. Debian超时优化"
 	echo "26. 进行TCP窗口调优"
-	echo "27. 网络初始化超时优化"
 	echo "------------------------"
 	echo "99. 重启服务器"
 	echo "------------------------"
@@ -2429,53 +2469,12 @@ EOF
 		;;
 
 	25)
-		root_use
-		echo "添加开机启动项"
-		echo "------------------------------------------------"
-		echo "将会生成一个系统服务以启动开机启动项，可在[${work_path}/config/start.sh]修改，请问是否要新增？"
-
-		read -p "确定继续吗？(Y/N): " choice
-		case "$choice" in
-		[Yy])
-			mkdir -p ${work_path}/config
-			if [ ! -f "${work_path}/config/start.sh" ]; then
-				echo "#!/usr/bin/env bash" >${work_path}/config/start.sh
-			fi
-
-			chmod +x ${work_path}/config/start.sh
-			echo '
-[Unit]
-Description= Cherry-startup
-After=network-online.target
-Wants=network-online.target systemd-networkd-wait-online.service
-[Service]
-LimitNOFILE=32767 
-Type=simple
-User=root
-Restart=on-failure
-RestartSec=5s
-ExecStartPre=/bin/sh -c 'ulimit -n 51200'
-ExecStart=/opt/CherryScript/config/start.sh
-[Install]
-WantedBy=multi-user.target' >/etc/systemd/system/Cherry-startup.service
-			systemctl enable --now Cherry-startup
-			;;
-		[Nn])
-			echo "已取消"
-			;;
-		*)
-			echo "无效的选择，请输入 Y 或 N。"
-			;;
-		esac
-
+		[[ -z $(cat /usr/lib/systemd/system/systemd-networkd-wait-online.service | grep TimeoutStartSec) ]] && sed -i "s/RemainAfterExit=yes/RemainAfterExit=yes\nTimeoutStartSec=2sec/g" /usr/lib/systemd/system/systemd-networkd-wait-online.service && echo "成功将systemd-networkd-wait-online.service服务添加超时时间，TimeoutStartSec=2sec"
 		;;
+		
 	26)
 		clear
-		curl -sS -O https://raw.githubusercontent.com/railzen/CherryScript/main/tools/tcptools.sh && chmod +x tcptools.sh && ./tcptools.sh
-		;;
-
-	27)
-		[[ -z $(cat /usr/lib/systemd/system/systemd-networkd-wait-online.service | grep TimeoutStartSec) ]] && sed -i "s/RemainAfterExit=yes/RemainAfterExit=yes\nTimeoutStartSec=2sec/g" /usr/lib/systemd/system/systemd-networkd-wait-online.service && echo "成功将systemd-networkd-wait-online.service服务添加超时时间，TimeoutStartSec=2sec"
+		bash <(curl -sSL https://raw.githubusercontent.com/railzen/CherryScript/main/tools/tcptools.sh)
 		;;
 
 	99)
