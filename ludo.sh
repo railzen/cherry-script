@@ -1331,13 +1331,13 @@ system_tools_menu() {
 			case $choice in
 			1)
 				prefer_ipv4
-				echo "已切换为 IPv4 优先,可能需要重启！"
+				echo "已切换为 IPv4 优先！"
 				echo
 				;;
 
 			2)
 				prefer_ipv6
-				echo "已切换为 IPv6 优先,可能需要重启！"
+				echo "已切换为 IPv6 优先！"
 				echo
 				;;
 
@@ -1345,15 +1345,16 @@ system_tools_menu() {
 				restore_ip46
 				prefer_ipv6
 				enable_ipv6
-				echo "已启用 IPv6,可能需要重启！"
+				echo "已启用 IPv6！"
 				echo
 				break_end
 				;;
 
 			4)
 				restore_ip46
+				prefer_ipv4
 				disable_ipv6
-				echo "已禁用 IPv6,可能需要重启！"
+				echo "已禁用 IPv6！"
 				echo
 				;;
 
@@ -4131,11 +4132,6 @@ install() {
 	done
 
 	return 0
-}
-
-install_dependency() {
-	clear
-	install wget socat unzip tar
 }
 
 remove() {
