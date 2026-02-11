@@ -131,7 +131,7 @@ list_rules() {
         LPORT=$(echo "$parsed" | cut -d '|' -f1)
         RIP=$(echo "$parsed" | cut -d '|' -f2)
         RPORT=$(echo "$parsed" | cut -d '|' -f3)
-        printf "[%d] 本地 %s - 远程 %s:%s \n" "$i" "$LPORT" "$RIP" "$RPORT"
+        printf "[%d] Local:%s - %s:%s \n" "$i" "$LPORT" "$RIP" "$RPORT"
         i=$((i+1))
     done < "$CONFIG_FILE"
     echo
@@ -152,7 +152,7 @@ add_rule() {
         validate_port "$RPORT" || { echo -e "${Red}目标端口无效${White}"; continue; }
         RULE="-L tcp://:${LPORT}/${RIP}:${RPORT}"
         echo "$RULE" >> "$CONFIG_FILE"
-        echo "已添加规则: 本地 $LPORT : $RIP:$RPORT"
+        echo "已添加规则: Local:$LPORT - $RIP:$RPORT"
         generate_env
 		restart_gost_service
         break
@@ -207,17 +207,15 @@ break_end() {
 }
 menu() {
     echo "------------------------"
+    echo -e "GOST 管理脚本"
     if [[ -e "$SERVICE_FILE" ]]; then
 		local status=`systemctl status Cherry-gost-forward | grep Active | awk '{print $3}' | cut -d "(" -f2 | cut -d ")" -f1`
 		if [[ "$status" == "running" ]]; then
-			echo -n "Gost: "
-			echo -e "${Green}Running${White}"
+			echo -e "Gost: ${Green}Running${White}"
 		else
-			echo -n "Gost: "
-			echo -e "${Red}Stopped${White}"
+			echo -e "Gost: ${Red}Stopped${White}"
 		fi
 	fi
-    echo -e "GOST 管理脚本"
     echo "------------------------"
     echo "1. 添加转发规则"
     echo "2. 查看当前规则"
