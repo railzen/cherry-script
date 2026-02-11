@@ -96,14 +96,8 @@ main_menu_start() {
 				echo "16. gost 转发隧道工具"
 				echo "17. ping 网络监测工具"
 				echo "------------------------"
-				echo "21. cmatrix 黑客帝国屏保"
-				echo "22. sl 跑火车屏保"
-				echo "------------------------"
-				echo "31. 全部安装"
-				echo "32. 全部卸载"
-				echo "------------------------"
-				echo "41. 安装指定工具"
-				echo "42. 卸载指定工具"
+				echo "51. 安装指定工具"
+				echo "52. 卸载指定工具"
 				echo "------------------------"
 				echo "0. 返回主菜单"
 				echo "------------------------"
@@ -253,36 +247,11 @@ WantedBy=multi-user.target' >/etc/systemd/system/Cherry-frps.service
 					;;
 				16)
 					clear
-					read -p "是否确认安装gost并同步安装开机自启服务？[Y/n]" yn
+					read -p "是否确认安装Gost？[Y/n]" yn
 					[[ -z "${yn}" ]] && yn="y"
 					if [[ ${yn} == [Yy] ]]; then
 						# 安装最新版本 [https://github.com/go-gost/gost/releases](https://github.com/go-gost/gost/releases)
 						bash <(curl -fsSL https://github.com/go-gost/gost/raw/master/install.sh) --install
-						rm -rf ./*
-						mkdir -p ${work_path}/config
-						if [ ! -f "${work_path}/config/start.sh" ]; then
-							echo "#!/usr/bin/env bash" >${work_path}/config/start.sh
-						fi
-
-						chmod +x ${work_path}/config/start.sh
-						echo '
-[Unit]
-Description= Cherry-startup
-After=network-online.target
-Wants=network-online.target systemd-networkd-wait-online.service
-[Service]
-LimitNOFILE=32767 
-Type=simple
-User=root
-Restart=on-failure
-RestartSec=5s
-ExecStartPre=/bin/sh -c 'ulimit -n 51200'
-ExecStart=/opt/CherryScript/config/start.sh
-[Install]
-WantedBy=multi-user.target' >/etc/systemd/system/Cherry-startup.service
-						systemctl enable --now Cherry-startup
-					else
-						echo && echo "操作取消" && echo
 					fi
 					;;
 				17)
@@ -292,35 +261,13 @@ WantedBy=multi-user.target' >/etc/systemd/system/Cherry-startup.service
 					ping -V
 					;;
 
-				21)
-					clear
-					install cmatrix
-					clear
-					cmatrix
-					;;
-				22)
-					clear
-					install sl
-					clear
-					/usr/games/sl
-					;;
 
-				31)
-					clear
-					install curl wget sudo socat htop iftop unzip tar tmux ffmpeg btop ranger gdu fzf vim
-					;;
-
-				32)
-					clear
-					remove htop iftop unzip tmux ffmpeg btop ranger gdu fzf vim
-					;;
-
-				41)
+				51)
 					clear
 					read -p "请输入安装的工具名（wget curl sudo htop）: " installname
 					install $installname
 					;;
-				42)
+				52)
 					clear
 					read -p "请输入卸载的工具名（htop ufw tmux cmatrix）: " removename
 					remove $removename
