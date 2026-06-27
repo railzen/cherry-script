@@ -3,7 +3,9 @@ PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:~/bin
 export PATH
 
 
-sh_ver="1.1.0 build240730"
+sh_ver="1.1.1 build260627"
+SNELL_VERSION="v5.0.1"
+SNELL_CONFIG_VERSION="5"
 filepath=$(cd "$(dirname "$0")"; pwd)
 file_1=$(echo -e "${filepath}"|awk -F "$0" '{print $1}')
 FOLDER="/etc/snell/"
@@ -113,25 +115,25 @@ check_status(){
 }
 
 
-# v4 官方源
-v4_Download(){
-	echo -e "${Info} 试图请求${Yellow_font_prefix}v4 官网源版${Font_color_suffix}Snell Server ……"
-	wget --no-check-certificate -N "https://dl.nssurge.com/snell/snell-server-v4.0.1-linux-${arch}.zip"
-	if [[ ! -e "snell-server-v4.0.1-linux-${arch}.zip" ]]; then
-		echo -e "${Error} Snell Server${Yellow_font_prefix}v4 官网源版${Font_color_suffix}下载失败！"
+# Snell 官方源
+Snell_Download(){
+	echo -e "${Info} 试图请求${Yellow_font_prefix}${SNELL_VERSION} 官网源版${Font_color_suffix}Snell Server ……"
+	wget --no-check-certificate -N "https://dl.nssurge.com/snell/snell-server-${SNELL_VERSION}-linux-${arch}.zip"
+	if [[ ! -e "snell-server-${SNELL_VERSION}-linux-${arch}.zip" ]]; then
+		echo -e "${Error} Snell Server${Yellow_font_prefix}${SNELL_VERSION} 官网源版${Font_color_suffix}下载失败！"
 		return 1 && exit 1
 	else
-		unzip -o "snell-server-v4.0.1-linux-${arch}.zip"
+		unzip -o "snell-server-${SNELL_VERSION}-linux-${arch}.zip"
 	fi
 	if [[ ! -e "snell-server" ]]; then
-		echo -e "${Error} Snell Server${Yellow_font_prefix}v4 官网源版${Font_color_suffix}解压失败 !"
-		echo -e "${Error} Snell Server${Yellow_font_prefix}v4 官网源版${Font_color_suffix}安装失败 !"
+		echo -e "${Error} Snell Server${Yellow_font_prefix}${SNELL_VERSION} 官网源版${Font_color_suffix}解压失败 !"
+		echo -e "${Error} Snell Server${Yellow_font_prefix}${SNELL_VERSION} 官网源版${Font_color_suffix}安装失败 !"
 		return 1 && exit 1
 	else
-		rm -rf "snell-server-v4.0.1-linux-${arch}.zip"
+		rm -rf "snell-server-${SNELL_VERSION}-linux-${arch}.zip"
 		chmod +x snell-server
 		mv -f snell-server "${FILE}"
-		echo "v4.0.1" > ${Now_ver_File}
+		echo "${SNELL_VERSION}" > ${Now_ver_File}
 		echo -e "${Info} Snell Server 主程序下载安装完毕！"
 		return 0
 	fi
@@ -144,11 +146,11 @@ Install() {
 	else
 		[[ -e "${FILE}" ]] && rm -rf "${FILE}"
 	fi
-		echo -e "正在安装Snell v4..."
+		echo -e "正在安装Snell ${SNELL_VERSION}..."
 
-	Install_v4
+	Install_v5
 	
-	rm -f snell-server-v4.0.1-linux-${arch}.zip
+	rm -f "snell-server-${SNELL_VERSION}-linux-${arch}.zip"
 
 }
 
@@ -284,7 +286,7 @@ ${Green_font_prefix} 1.${Font_color_suffix} HTTP ${Green_font_prefix} 2.${Font_c
 }
 
 Set_ver(){
-	ver=4
+	ver=${SNELL_CONFIG_VERSION}
 }
 
 Set_host_init(){
@@ -391,8 +393,8 @@ Set(){
     start_menu
 }
 
-# 安装 v4
-Install_v4(){
+# 安装 V5
+Install_v5(){
 	check_root
 	[[ -e ${FILE} ]] && echo -e "${Error} 检测到 Snell Server 已安装 ,请先卸载旧版再安装新版!" && exit 1
 	echo -e "${Info} 开始设置 配置..."
@@ -406,7 +408,7 @@ Install_v4(){
 	echo -e "${Info} 开始安装/配置 依赖..."
 	Installation_dependency
 	echo -e "${Info} 开始下载/安装..."
-	v4_Download
+	Snell_Download
 	echo -e "${Info} 开始安装 服务脚本..."
 	Service
 	echo -e "${Info} 开始写入 配置文件..."
@@ -418,8 +420,12 @@ Install_v4(){
 	[[ "$status" == "running" ]] && echo -e "${Info} Snell Server 启动成功 !"
     Get_subscribe_link
     echo "安装完成，以下是您的订阅链接"
-    echo ${finish_link}
-    echo ${finish_link} >> ~/Proxy.txt
+    echo "CLASH: ${clash_link}"
+    echo "SURGE: ${surge_link}"
+    echo "Shadowrocket: ${shadowrocket_link}"
+    echo "CLASH: ${clash_link}" >> ~/Proxy.txt
+    echo "SURGE: ${surge_link}" >> ~/Proxy.txt
+    echo "Shadowrocket: ${shadowrocket_link}" >> ~/Proxy.txt
     before_start_menu
 }
 
@@ -498,7 +504,7 @@ View(){
 	getipv4
 	getipv6
 	clear && echo
-	echo -e "Snell Server V4 配置信息："
+	echo -e "Snell Server V${ver} 配置信息："
 	echo -e "—————————————————————————"
 	[[ "${ipv4}" != "IPv4_Error" ]] && echo -e " 地址\t: ${Green_font_prefix}${ipv4}${Font_color_suffix}"
 	[[ "${ip6}" != "IPv6_Error" ]] && echo -e " 地址\t: ${Green_font_prefix}${ip6}${Font_color_suffix}"
@@ -520,7 +526,11 @@ Get_subscribe_link(){
 	getipv4
 	country=$(curl -s ipinfo.io/country)
 	hostname=$(hostname)
-	finish_link="${country}-${hostname} = snell, ${ipv4}, ${port}, psk=${psk}, version=${ver}, reuse=true, tfo=${tfo}, ip-version=prefer-v4"
+	node_name="${country}-${hostname}"
+	shadowrocket_userinfo=$(printf "%s" "chacha20-ietf-poly1305:${psk}" | base64 | tr -d '\n')
+	clash_link="{name: ${node_name}, type: snell, server: ${ipv4}, port: ${port}, psk: ${psk}, version: '${ver}'}"
+	surge_link="${node_name} = snell, ${ipv4}, ${port}, psk=${psk}, version=${ver}, reuse=true, tfo=${tfo}, ip-version=prefer-v4"
+	shadowrocket_link="snell://${shadowrocket_userinfo}@${ipv4}:${port}?version=${ver}&reuse=1#${node_name}"
 }
 
 Status(){

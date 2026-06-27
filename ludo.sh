@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-main_version="V1.1.42 Build260211"
+main_version="V1.1.43 Build260627"
 work_path="/opt/CherryScript"
 
 main_menu_start() {
@@ -28,7 +28,7 @@ main_menu_start() {
 		echo "8. 面板安装合集 ▶ "
 		echo "9. 端口转发工具 ▶ "
 		echo "10. 系统工具 ▶ "
-		echo "11. 安装Snell V4 ▶ "
+		echo "11. 安装Snell ▶ "
 		echo "12. 安装Hysteria2 ▶ "
 		echo "13. SingBox脚本 ▶ "
 		echo "14. 直接开启BBR "
