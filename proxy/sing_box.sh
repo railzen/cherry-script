@@ -32,7 +32,7 @@ is_log_dir=/var/log/$is_core
 is_sh_bin=/usr/local/bin/$is_core
 is_sh_dir=$is_core_dir/sh
 is_sh_repo=$author/CherryScript/main/proxy
-is_pkg="wget tar"
+is_pkg="wget tar curl"
 is_config_json=$is_core_dir/config.json
 is_tls_cer=$is_core_dir/bin/tls.cer
 is_tls_key=$is_core_dir/bin/tls.key
@@ -149,7 +149,7 @@ is_random_ss_method=${ss_method_list[$(shuf -i 4-6 -n1)]} # random only use ss20
 is_random_servername=${servername_list[$(shuf -i 0-${#servername_list[@]} -n1) - 1]}
 
 # tmp dir
-tmpdir=/tmp/tmp-cherry-singbox-5ad3e6
+tmpdir=$(mktemp -d /tmp/cherry-singbox.XXXXXX) || exit 1
 
 # set up var
 for i in ${tmp_var_lists[*]}; do
@@ -234,21 +234,31 @@ show_list() {
 }
 
 open_firewall_port() {
-	ufw allow $1 >/dev/null 2>&1
-	sudo firewall-cmd --permanent --add-port=$1 >/dev/null 2>&1
-	sed -i "/COMMIT/i -A INPUT -p tcp --dport $1 -j ACCEPT" /etc/iptables/rules.v4 >/dev/null 2>&1
-	sed -i "/COMMIT/i -A INPUT -p udp --dport $1 -j ACCEPT" /etc/iptables/rules.v4 >/dev/null 2>&1
+	local protocol
+	if command -v ufw >/dev/null; then
+		ufw allow "$1" >/dev/null || warn "端口 $1 放行失败，请检查 ufw."
+	elif command -v firewall-cmd >/dev/null; then
+		for protocol in tcp udp; do
+			firewall-cmd --add-port="$1/$protocol" >/dev/null &&
+				firewall-cmd --permanent --add-port="$1/$protocol" >/dev/null || warn "端口 $1/$protocol 放行失败."
+		done
+	elif [[ -f /etc/iptables/rules.v4 ]] && command -v iptables >/dev/null; then
+		for protocol in tcp udp; do
+			iptables -C INPUT -p "$protocol" --dport "$1" -j ACCEPT 2>/dev/null ||
+				iptables -I INPUT -p "$protocol" --dport "$1" -j ACCEPT || warn "端口 $1/$protocol 放行失败."
+			grep -q -- "-A INPUT -p $protocol --dport $1 -j ACCEPT" /etc/iptables/rules.v4 ||
+				sed -i "/COMMIT/i -A INPUT -p $protocol --dport $1 -j ACCEPT" /etc/iptables/rules.v4
+		done
+	fi
 }
 
 is_test() {
 	case $1 in
 	number)
-		echo $2 | egrep '^[1-9][0-9]?+$'
+		[[ $2 =~ ^[1-9][0-9]*$ ]] && printf '%s\n' "$2"
 		;;
 	port)
-		if [[ $(is_test number $2) ]]; then
-			[[ $2 -le 65535 ]] && echo ok
-		fi
+		[[ $2 =~ ^[1-9][0-9]{0,4}$ ]] && (( $2 <= 65535 )) && echo ok
 		;;
 	port_used)
 		[[ $(is_port_used $2) && ! $is_cant_test_port ]] && echo ok
@@ -277,8 +287,8 @@ is_port_used() {
 		return
 	fi
 	is_cant_test_port=1
-	msg "$is_warn 无法检测端口是否可用."
-	msg "请执行: $(_yellow "${cmd} update -y; ${cmd} install net-tools -y") 来修复此问题."
+	msg "$is_warn 无法检测端口是否可用." >&2
+	msg "请执行: $(_yellow "${cmd} update -y; ${cmd} install net-tools -y") 来修复此问题." >&2
 }
 
 # ask input a string or pick a option for list.
@@ -326,10 +336,10 @@ ask() {
 	[[ $is_tmp_list ]] && show_list "${is_tmp_list[@]}"
 	while :; do
 		echo -ne $is_opt_input_msg
-		read REPLY
+		read -r REPLY
 		[[ ! $REPLY && $is_emtpy_exit ]] && exit
 		if [ ${is_ask_set} == "ss_password" ]; then
-			export $is_ask_set=$REPLY && break
+			export "$is_ask_set=$REPLY" && break
 		fi
 		[[ ! $REPLY && $is_default_arg ]] && export $is_ask_set=$is_default_arg && break
 		[[ "$REPLY" == "${is_str}2${is_get}3${is_opt}3" && $is_ask_set == 'is_main_pick' ]] && {
@@ -360,7 +370,7 @@ ask() {
 				msg "请输入 (y)"
 				continue
 			}
-			[[ $REPLY ]] && export $is_ask_set=$REPLY && msg "使用: ${!is_ask_set}" && break
+			[[ $REPLY ]] && export "$is_ask_set=$REPLY" && msg "使用: ${!is_ask_set}" && break
 		else
 			[[ $(is_test number "$REPLY") ]] && is_ask_result=${is_tmp_list[$REPLY - 1]}
 			[[ $is_ask_result ]] && export $is_ask_set="$is_ask_result" && msg "选择: ${!is_ask_set}" && break
@@ -406,8 +416,9 @@ create() {
 		# get json
 		[[ $is_change || ! $json_str ]] && get protocol $2
 
+		is_add_public_key=
 		[[ $net == "reality" ]] && is_add_public_key=",outbounds:[{type:\"direct\"},{tag:\"public_key_$is_public_key\",type:\"direct\"}]"
-		is_new_json=$(jq "{inbounds:[{tag:\"$is_config_name\",type:\"$is_protocol\",$is_listen,listen_port:$port,$json_str}]$is_add_public_key}" <<<{})
+		is_new_json=$(jq -e "{inbounds:[{tag:\"$is_config_name\",type:\"$is_protocol\",$is_listen,listen_port:$port,$json_str}]$is_add_public_key}" <<<{}) || err "生成配置失败，原配置未修改."
 		[[ $is_test_json ]] && return # tmp test
 		# only show json, dont save to file.
 		[[ $is_gen ]] && {
@@ -416,10 +427,18 @@ create() {
 			msg
 			return
 		}
-		# del old file
-		[[ $is_config_file ]] && is_no_del_msg=1 && del $is_config_file
-		# save json to file
-		cat <<<$is_new_json >$is_json_file
+		# Validate the complete replacement before touching the live configuration.
+		local staged_dir staged_file
+		staged_dir=$(mktemp -d "$tmpdir/config.XXXXXX") || err "创建临时目录失败."
+		cp -a "$is_conf_dir/." "$staged_dir/" || err "备份配置失败."
+		[[ $is_config_file ]] && rm -f "$staged_dir/$is_config_file"
+		printf '%s\n' "$is_new_json" >"$staged_dir/$is_config_name" || err "写入临时配置失败."
+		"$is_core_bin" check -c "$is_config_json" -C "$staged_dir" || err "配置检查失败，原配置未修改."
+		staged_file=$(mktemp "$is_conf_dir/.config.XXXXXX") || err "创建临时文件失败."
+		printf '%s\n' "$is_new_json" >"$staged_file" && mv -f "$staged_file" "$is_json_file" || err "保存配置失败."
+		[[ $is_config_file && $is_config_file != "$is_config_name" ]] && rm -f "$is_conf_dir/$is_config_file"
+		rm -rf "$staged_dir"
+		open_firewall_port "$port"
 		if [[ $is_new_install ]]; then
 			# config.json
 			create config.json
@@ -641,22 +660,8 @@ change() {
 			if [[ $is_new_private_key == $is_new_public_key ]]; then
 				err "Private key 和 Public key 不能一样."
 			fi
-			is_tmp_json=$is_conf_dir/$is_config_file-$uuid
-			cp -f $is_conf_dir/$is_config_file $is_tmp_json
-			sed -i s#$is_private_key #$is_new_private_key# $is_tmp_json
-			$is_core_bin check -c $is_tmp_json &>/dev/null
-			if [[ $? != 0 ]]; then
-				is_key_err=1
-				is_key_err_msg="Private key 无法通过测试."
-			fi
-			sed -i s#$is_new_private_key #$is_new_public_key# $is_tmp_json
-			$is_core_bin check -c $is_tmp_json &>/dev/null
-			if [[ $? != 0 ]]; then
-				is_key_err=1
-				is_key_err_msg+="Public key 无法通过测试."
-			fi
-			rm $is_tmp_json
-			[[ $is_key_err ]] && err $is_key_err_msg
+			[[ $is_new_private_key =~ ^[A-Za-z0-9_-]{43}$ && $is_new_public_key =~ ^[A-Za-z0-9_-]{43}$ ]] ||
+				err "密钥格式错误，请使用同一组 REALITY 密钥."
 			is_private_key=$is_new_private_key
 			is_public_key=$is_new_public_key
 			is_test_json=
@@ -699,11 +704,7 @@ get_latest_version() {
 		url="https://api.github.com/repos/${is_core_repo}/releases/latest?v=$RANDOM"
 		;;
 	sh)
-		name="$is_core_name 脚本"
-		url="https://api.github.com/repos/$is_sh_repo/releases/latest?v=$RANDOM"
-		cd $is_sh_dir
-		curl -sSO $script_update_link
-		echo "已更新到最新版本"
+		update_script
 		return 0
 		;;
 	esac
@@ -714,40 +715,40 @@ get_latest_version() {
 	unset name url
 }
 
-download() {
-	latest_ver=$2
-	[[ ! $latest_ver ]] && get_latest_version $1
-	# tmp dir
-	[[ ! $tmpdir ]] && {
-		tmpdir=/tmp/tmp-cherry-singbox-5ad3e6
-	}
-	mkdir -p $tmpdir
-	case $1 in
-	core)
-		name=$is_core_name
-		tmpfile=$tmpdir/$is_core.tar.gz
-		link="https://github.com/${is_core_repo}/releases/download/${latest_ver}/${is_core}-${latest_ver:1}-linux-${is_arch}.tar.gz"
-		download_file
-		tar zxf $tmpfile --strip-components 1 -C $is_core_dir/bin
-		chmod +x $is_core_bin
-		;;
-	sh)
-		name="$is_core_name 脚本"
-		tmpfile=$tmpdir/sh.tar.gz
-		link="https://github.com/${is_sh_repo}/releases/download/${latest_ver}/code.tar.gz"
-		download_file
-		tar zxf $tmpfile -C $is_sh_dir
-		chmod +x $is_sh_bin ${is_sh_bin/$is_core/sb}
-		;;
-	esac
-	rm -rf $tmpdir
-	unset latest_ver
+update_script() {
+	local script_tmp
+	mkdir -p "$is_sh_dir" || err "创建脚本目录失败."
+	script_tmp=$(mktemp "$is_sh_dir/.update.XXXXXX") || err "创建临时文件失败."
+	if ! _wget -t 3 -O "$script_tmp" "$script_update_link" ||
+		! head -n 1 "$script_tmp" | grep -q '^#!/bin/bash' || ! bash -n "$script_tmp"; then
+		rm -f "$script_tmp"
+		err "脚本下载或检查失败，原脚本未修改."
+	fi
+	chmod +x "$script_tmp" && mv -f "$script_tmp" "$is_sh_dir/sing_box.sh" || err "保存脚本失败."
 }
 
-download_file() {
-	if ! _wget -t 5 -c $link -O $tmpfile; then
-		rm -rf $tmpdir
-		err "\n下载 ${name} 失败.\n"
+update_core() {
+	local version=$1 work candidate actual was_active=
+	work=$(mktemp -d "$tmpdir/update.XXXXXX") || err "创建临时目录失败."
+	_wget -t 3 -O "$work/core.tar.gz" "https://github.com/${is_core_repo}/releases/download/${version}/${is_core}-${version#v}-linux-${is_arch}.tar.gz" || err "下载内核失败，原版本未修改."
+	tar zxf "$work/core.tar.gz" --strip-components 1 -C "$work" || err "解压内核失败."
+	candidate=$work/$is_core
+	chmod +x "$candidate" || err "内核文件不存在."
+	actual=$("$candidate" version | head -n1 | cut -d ' ' -f3)
+	[[ v$actual == "$version" ]] || err "下载的内核版本不匹配，原版本未修改."
+	"$candidate" check -c "$is_config_json" -C "$is_conf_dir" || err "新版本不兼容现有配置，原版本未修改."
+	cp -p "$is_core_bin" "$work/core.old" || err "备份旧版本失败."
+	systemctl is-active --quiet "$is_core" && was_active=1
+	cp "$candidate" "$is_core_bin.new" && chmod +x "$is_core_bin.new" || err "准备新内核失败."
+	mv -f "$is_core_bin.new" "$is_core_bin" || err "替换内核失败，原版本未修改."
+	if systemctl restart "$is_core" && sleep 2 && systemctl is-active --quiet "$is_core"; then
+		is_core_ver=$actual
+		rm -rf "$work"
+	else
+		systemctl stop "$is_core"
+		cp -p "$work/core.old" "$is_core_bin.rollback" && mv -f "$is_core_bin.rollback" "$is_core_bin" || err "恢复旧内核失败，备份位于 $work."
+		[[ $was_active ]] && systemctl start "$is_core"
+		err "新版本启动失败，已恢复旧内核."
 	fi
 }
 
@@ -1016,8 +1017,9 @@ add() {
 		echo -e "请输入端口[1-65535]:"
 		read -e -p "(默认随机):" port
 		[[ -z "${port}" ]] && port=$(get_random_port)
+		[[ $(is_test port "$port") ]] || err "请输入正确的端口，可选(1-65535)."
+		[[ ! $(is_test port_used "$port") ]] || err "端口 $port 已被占用."
 		echo -e "端口 : ${port} "
-		open_firewall_port $port
 	fi
 
 	case ${is_new_protocol,,} in
@@ -1100,8 +1102,7 @@ WantedBy=multi-user.target"
 	esac
 
 	# enable, reload
-	systemctl enable $1
-	systemctl daemon-reload
+	systemctl daemon-reload && systemctl enable "$1"
 }
 
 # get config info
@@ -1135,20 +1136,16 @@ get() {
 	info)
 		get file $2
 		if [[ $is_config_file ]]; then
-			is_json_str=$(cat $is_conf_dir/"$is_config_file" | sed s#//.*##)
-			is_json_data=$(jq '(.inbounds[0]|.type,.listen_port,(.users[0]|.uuid,.password,.username),.method,.password,.override_port,.override_address,(.transport|.type,.path,.headers.host),(.tls|.server_name,.reality.private_key)),(.outbounds[1].tag)' <<<$is_json_str)
+			is_json_str=$(cat "$is_conf_dir/$is_config_file")
+			is_json_data=$(jq -r '[(.inbounds[0]|.type,.listen_port,(.users[0]|.uuid,.password,.username),.method,.password,.override_port,.override_address,(.transport|.type,.path,.headers.host),(.tls|.server_name,.reality.private_key)),(.outbounds[1].tag)] | .[] | (if . == null then "" else tostring end | @base64) | "." + .' <<<"$is_json_str")
 			[[ $? != 0 ]] && err "无法读取此文件: $is_config_file"
 			is_up_var_set=(null is_protocol port uuid password username ss_method ss_password door_port door_addr net_type path host is_servername is_private_key is_public_key)
 			[[ $is_debug ]] && msg "\n------------- debug: $is_config_file -------------"
 			i=0
-			for v in $(sed 's/""/null/g;s/"//g' <<<"$is_json_data"); do
+			while IFS= read -r v; do
 				((i++))
-				[[ $is_debug ]] && msg "$i-${is_up_var_set[$i]}: $v"
-				export ${is_up_var_set[$i]}="${v}"
-			done
-			for v in ${is_up_var_set[@]}; do
-				[[ ${!v} == 'null' ]] && unset $v
-			done
+				export "${is_up_var_set[$i]}=$(printf '%s' "${v#.}" | base64 -d)"
+			done <<<"$is_json_data"
 
 			if [[ $is_private_key ]]; then
 				is_reality=1
@@ -1174,7 +1171,7 @@ get() {
 		case $is_lower in
 		vmess*)
 			is_protocol=vmess
-			[[ $is_lower =~ "tcp" || ! $net_type && $is_up_var_set ]] && net=tcp && json_str=$is_users
+			[[ $is_lower == "vmess-tcp" || $is_lower == "vmess-" || $is_lower == "vmess" ]] && net=tcp && json_str=$is_users
 			;;
 		vless*)
 			is_protocol=vless
@@ -1187,7 +1184,7 @@ get() {
 		trojan*)
 			is_protocol=trojan
 			[[ ! $password ]] && password=$uuid
-			is_users="users:[{password:\"$password\"}]"
+			is_users="users:[{password:$(json_quote "$password")}]"
 			[[ ! $host ]] && {
 				net=trojan
 				json_str="$is_users,${is_tls_json/alpn\:\[\"h3\"\],/}"
@@ -1197,7 +1194,7 @@ get() {
 			net=hysteria2
 			is_protocol=$net
 			[[ ! $password ]] && password=$uuid
-			json_str="users:[{password:\"$password\"}],$is_tls_json"
+			json_str="users:[{password:$(json_quote "$password")}],$is_tls_json"
 			;;
 		shadowsocks*)
 			net=ss
@@ -1207,7 +1204,7 @@ get() {
 				ss_password=$uuid
 				[[ $(grep 2022 <<<$ss_method) ]] && ss_password=$(get ss2022)
 			}
-			json_str="method:\"$ss_method\",password:\"$ss_password\""
+			json_str="method:\"$ss_method\",password:$(json_quote "$ss_password")"
 			;;
 		direct*)
 			net=direct
@@ -1219,7 +1216,7 @@ get() {
 			is_protocol=$net
 			[[ ! $is_socks_user ]] && is_socks_user=socks
 			[[ ! $is_socks_pass ]] && is_socks_pass=$uuid
-			json_str="users:[{username: \"$is_socks_user\", password: \"$is_socks_pass\"}]"
+			json_str="users:[{username:$(json_quote "$is_socks_user"),password:$(json_quote "$is_socks_pass")}]"
 			;;
 		*)
 			err "无法识别协议: $is_config_file"
@@ -1281,7 +1278,9 @@ get() {
 		fi
 		;;
 	ssss | ss2022)
-		$is_core_bin generate rand 32 --base64
+		local key_length=32
+		[[ ${2:-$ss_method} == '2022-blake3-aes-128-gcm' ]] && key_length=16
+		"$is_core_bin" generate rand "$key_length" --base64
 		;;
 	ping)
 		# is_ip_type="-4"
@@ -1324,13 +1323,20 @@ get() {
 	esac
 }
 
+# Quote user input as a JSON string, without interpreting jq expressions.
+json_quote() {
+	jq -cn --arg value "$1" '$value'
+}
+
 # show info
 info() {
 	if [[ ! $is_protocol ]]; then
 		get info $1
 	fi
 	# is_color=$(shuf -i 41-45 -n1)
-	currentCountry=$(curl -s ipinfo.io/country)
+	currentCountry=$(curl --connect-timeout 5 --max-time 10 -fsS https://ipinfo.io/country 2>/dev/null)
+	is_uri_addr=$is_addr
+	[[ $is_uri_addr == *:* && $is_uri_addr != \[*\] ]] && is_uri_addr="[$is_uri_addr]"
 	is_color=44
 	case $net in
 	ws | tcp | h2 | quic | http*)
@@ -1350,12 +1356,12 @@ info() {
 				}
 				is_url="$is_protocol://$uuid@$host:$is_https_port?encryption=none&security=tls&type=$net&host=$host&path=$path#$currentCountry-$net-$host"
 			}
-			is_info_str=($is_protocol $is_addr $is_https_port $uuid $net $host $path 'tls')
+			is_info_str=("$is_protocol" "$is_addr" "$is_https_port" "$uuid" "$net" "$host" "$path" 'tls')
 		else
 			is_type=none
 			is_can_change=(0 1 5)
 			is_info_show=(0 1 2 3 4)
-			is_info_str=($is_protocol $is_addr $port $uuid $net)
+			is_info_str=("$is_protocol" "$is_addr" "$port" "$uuid" "$net")
 			[[ $net == "http" ]] && {
 				net=tcp
 				is_type=http
@@ -1376,29 +1382,29 @@ info() {
 	ss)
 		is_can_change=(0 1 4 6)
 		is_info_show=(0 1 2 10 11)
-		is_url="ss://$(echo -n ${ss_method}:${ss_password} | base64 -w 0)@${is_addr}:${port}#$currentCountry-$net-${is_addr}"
-		url_clash_echo="{name: $currentCountry-$is_addr, server: ${is_addr}, port: ${port}, type: ss, cipher: ${ss_method}, password: ${ss_password}}"
-		is_info_str=($is_protocol $is_addr $port $ss_password $ss_method)
+		is_url="ss://$(printf '%s' "${ss_method}:${ss_password}" | base64 -w 0)@${is_uri_addr}:${port}#$currentCountry-$net-${is_addr}"
+		url_clash_echo="{name: $currentCountry-$is_addr, server: ${is_addr}, port: ${port}, type: ss, cipher: ${ss_method}, password: $(json_quote "$ss_password")}"
+		is_info_str=("$is_protocol" "$is_addr" "$port" "$ss_password" "$ss_method")
 		;;
 	trojan)
 		is_insecure=1
 		is_can_change=(0 1 4)
 		is_info_show=(0 1 2 10 4 8 20)
-		is_url="$is_protocol://$password@$is_addr:$port?type=tcp&security=tls&allowInsecure=1#$currentCountry-$net-$is_addr"
-		is_info_str=($is_protocol $is_addr $port $password tcp tls true)
+		is_url="$is_protocol://$(jq -rn --arg value "$password" '$value | @uri')@$is_uri_addr:$port?type=tcp&security=tls&allowInsecure=1#$currentCountry-$net-$is_addr"
+		is_info_str=("$is_protocol" "$is_addr" "$port" "$password" tcp tls true)
 		;;
 	hy*)
 		is_can_change=(0 1 4)
 		is_info_show=(0 1 2 10 8 9 20)
-		is_url="$is_protocol://$password@$is_addr:$port?alpn=h3&insecure=1#$currentCountry-$net-$is_addr"
-		is_info_str=($is_protocol $is_addr $port $password tls h3 true)
+		is_url="$is_protocol://$(jq -rn --arg value "$password" '$value | @uri')@$is_uri_addr:$port?alpn=h3&insecure=1#$currentCountry-$net-$is_addr"
+		is_info_str=("$is_protocol" "$is_addr" "$port" "$password" tls h3 true)
 		;;
 	tuic)
 		is_insecure=1
 		is_can_change=(0 1 5)
 		is_info_show=(0 1 2 3 8 9 20 21)
-		is_url="$is_protocol://$uuid:@$is_addr:$port?alpn=h3&allow_insecure=1&congestion_control=bbr#$currentCountry-$net-$is_addr"
-		is_info_str=($is_protocol $is_addr $port $uuid tls h3 true bbr)
+		is_url="$is_protocol://$uuid:@$is_uri_addr:$port?alpn=h3&allow_insecure=1&congestion_control=bbr#$currentCountry-$net-$is_addr"
+		is_info_str=("$is_protocol" "$is_addr" "$port" "$uuid" tls h3 true bbr)
 		;;
 	reality)
 		is_color=41
@@ -1411,20 +1417,21 @@ info() {
 			is_net_type=h2
 			is_info_show=(${is_info_show[@]/15/})
 		}
-		is_info_str=($is_protocol $is_addr $port $uuid $is_flow $is_net_type reality $is_servername chrome $is_public_key)
-		is_url="$is_protocol://$uuid@$ip:$port?encryption=none&security=reality&flow=$is_flow&type=$is_net_type&sni=$is_servername&pbk=$is_public_key&fp=chrome#$currentCountry-$net-$is_addr"
-		url_clash_echo="{name: $currentCountry-$is_addr, server: $ip, port: $port, reality-opts: {public-key: $is_public_key}, client-fingerprint: chrome, type: vless, uuid: $uuid, tls: true, flow: $is_flow, servername: $is_servername, network: tcp}"
+		is_info_str=("$is_protocol" "$is_addr" "$port" "$uuid" "$is_flow" "$is_net_type" reality "$is_servername" chrome "$is_public_key")
+		[[ ! $is_flow ]] && is_info_str=("${is_info_str[@]:0:4}" "${is_info_str[@]:5}")
+		is_url="$is_protocol://$uuid@$is_uri_addr:$port?encryption=none&security=reality&flow=$is_flow&type=$is_net_type&sni=$is_servername&pbk=$is_public_key&fp=chrome#$currentCountry-$net-$is_addr"
+		url_clash_echo="{name: $currentCountry-$is_addr, server: $ip, port: $port, reality-opts: {public-key: $is_public_key}, client-fingerprint: chrome, type: vless, uuid: $uuid, tls: true, flow: '$is_flow', servername: $is_servername, network: $is_net_type}"
 		;;
 	direct)
 		is_can_change=(0 1 7 8)
 		is_info_show=(0 1 2 13 14)
-		is_info_str=($is_protocol $is_addr $port $door_addr $door_port)
+		is_info_str=("$is_protocol" "$is_addr" "$port" "$door_addr" "$door_port")
 		;;
 	socks)
 		is_can_change=(0 1 12 4)
 		is_info_show=(0 1 2 19 10)
-		is_info_str=($is_protocol $is_addr $port $is_socks_user $is_socks_pass)
-		is_url="socks://$(echo -n ${is_socks_user}:${is_socks_pass} | base64 -w 0)@${is_addr}:${port}#$currentCountry-$net-${is_addr}"
+		is_info_str=("$is_protocol" "$is_addr" "$port" "$is_socks_user" "$is_socks_pass")
+		is_url="socks://$(printf '%s' "${is_socks_user}:${is_socks_pass}" | base64 -w 0)@${is_uri_addr}:${port}#$currentCountry-$net-${is_addr}"
 		;;
 	esac
 	[[ $is_dont_show_info || $is_gen || $is_dont_auto_exit ]] && return # dont show info
@@ -1459,18 +1466,19 @@ info() {
 
 # update core, sh
 update() {
+	if [[ $1 == 2 || $1 == sh ]]; then
+		update_script
+		msg "脚本更新成功."
+		return
+	fi
+	is_core_ver=$("$is_core_bin" version | head -n1 | cut -d ' ' -f3)
+	local is_new_ver=
 	case $1 in
 	1 | core | $is_core)
 		is_update_name=core
 		is_show_name=$is_core_name
 		is_run_ver=v${is_core_ver##* }
 		is_update_repo=$is_core_repo
-		;;
-	2 | sh)
-		is_update_name=sh
-		is_show_name="$is_core_name 脚本"
-		is_run_ver=$is_sh_ver
-		is_update_repo=$is_sh_repo
 		;;
 	*)
 		err "无法识别 ($1), 请使用: $is_core update [core | sh ] [ver]"
@@ -1492,15 +1500,14 @@ update() {
 		msg "\n发现 $is_show_name 新版本: $(_green $latest_ver)\n"
 		is_new_ver=$latest_ver
 	fi
-	download $is_update_name $is_new_ver
+	update_core "$is_new_ver"
 	msg "更新成功, 当前 $is_show_name 版本: $(_green $is_new_ver)\n"
-	[[ $is_update_name != 'sh' ]] && manage restart $is_update_name &
 }
 
 # wget add --no-check-certificate
 _wget() {
 	[[ $proxy ]] && export https_proxy=$proxy
-	wget --no-check-certificate $*
+	wget --no-check-certificate "$@"
 }
 
 # install dependent pkg
@@ -1537,16 +1544,9 @@ download() {
 		is_ok=$is_core_ok
 		;;
 	sh)
-		link=$script_update_link
-		mkdir -p $is_core_dir
-		mkdir -p $is_sh_dir
-		cd $is_sh_dir
-		curl -sSO $script_update_link
-		chmod +x *.sh
-		cd -
-		name="$is_core_name 脚本"
-		tmpfile=$tmpsh
-		is_ok=$is_sh_ok
+		update_script
+		>"$is_sh_ok"
+		return
 		;;
 	jq)
 		link=https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-$is_arch
@@ -1562,12 +1562,6 @@ download() {
 			mv -f $tmpfile $is_ok
 		fi
 	}
-}
-
-# get server ip
-get_ip() {
-	export "$(_wget -4 -qO- https://one.one.one.one/cdn-cgi/trace | grep ip=)" &>/dev/null
-	[[ -z $ip ]] && export "$(_wget -6 -qO- https://one.one.one.one/cdn-cgi/trace | grep ip=)" &>/dev/null
 }
 
 # check background tasks status
@@ -1614,8 +1608,6 @@ check_status() {
 install_script_start() {
 	[[ -d $is_core_dir/bin && -d $is_sh_dir && -d $is_conf_dir ]] && {
 		#err "检测到脚本已安装, 如需重装请使用${green} ${is_core} reinstall ${none}命令."
-		cd $is_sh_dir
-		curl -sSO $script_update_link
 		clear
 		return
 	}
@@ -1668,7 +1660,7 @@ install_script_start() {
 	if [[ $is_core_file ]]; then
 		cp -rf $tmpdir/testzip/* $is_core_dir/bin
 	else
-		tar zxf $is_core_ok --strip-components 1 -C $is_core_dir/bin
+		tar zxf "$is_core_ok" --strip-components 1 -C "$is_core_dir/bin" || err "解压内核失败."
 	fi
 
 	# jq
@@ -1681,7 +1673,7 @@ install_script_start() {
 	mkdir -p $is_log_dir
 
 	# create systemd service
-	install_service $is_core &>/dev/null
+	install_service "$is_core" || err "创建服务失败."
 
 	#create config.json
 	is_log='log:{output:"/var/log/'$is_core'/access.log",level:"info","timestamp":true}'
@@ -1695,19 +1687,18 @@ install_script_start() {
 	is_outbounds='outbounds:[{tag:"direct",type:"direct"},{tag:"block",type:"block"}]'
 	is_server_config_json=$(jq "{$is_log,$is_dns,$is_ntp$is_outbounds}" <<<{})
 	cat <<<$is_server_config_json >$is_config_json
-	manage restart &
-
 	# create condf dir
 	mkdir -p $is_conf_dir
 
 	# tls key pair
 	[[ ! -f $is_tls_cer || ! -f $is_tls_key ]] && {
 		is_tls_tmp=${is_tls_key/key/tmp}
-		$is_core_bin generate tls-keypair tls -m 456 >$is_tls_tmp
+		$is_core_bin generate tls-keypair tls -m 456 >$is_tls_tmp || err "生成 TLS 证书失败."
 		awk '/BEGIN PRIVATE KEY/,/END PRIVATE KEY/' $is_tls_tmp >$is_tls_key
 		awk '/BEGIN CERTIFICATE/,/END CERTIFICATE/' $is_tls_tmp >$is_tls_cer
 		rm $is_tls_tmp
 	}
+	"$is_core_bin" check -c "$is_config_json" -C "$is_conf_dir" || err "安装后的配置检查失败."
 	clear
 	_green "Install Finish"
 }
@@ -1823,18 +1814,17 @@ script_pre_check() {
 		;;
 	esac
 
-	# tls key pair
-	[[ ! -f $is_tls_cer || ! -f $is_tls_key ]] && {
+	# Repair missing certificates only after the core has been installed.
+	if [[ -x $is_core_bin && ( ! -s $is_tls_cer || ! -s $is_tls_key ) ]]; then
 		is_tls_tmp=${is_tls_key/key/tmp}
-		$is_core_bin generate tls-keypair tls -m 456 >$is_tls_tmp
-		awk '/BEGIN PRIVATE KEY/,/END PRIVATE KEY/' $is_tls_tmp >$is_tls_key
-		awk '/BEGIN CERTIFICATE/,/END CERTIFICATE/' $is_tls_tmp >$is_tls_cer
-		rm $is_tls_tmp
-	}
+		"$is_core_bin" generate tls-keypair tls -m 456 >"$is_tls_tmp" || err "生成 TLS 证书失败."
+		awk '/BEGIN PRIVATE KEY/,/END PRIVATE KEY/' "$is_tls_tmp" >"$is_tls_key"
+		awk '/BEGIN CERTIFICATE/,/END CERTIFICATE/' "$is_tls_tmp" >"$is_tls_cer"
+		rm -f "$is_tls_tmp"
+	fi
 
 	clear
 	# create workdir
-	rm -rf $tmpdir
 	mkdir -p $tmpdir
 	mkdir -p $is_sh_dir
 
@@ -1843,14 +1833,21 @@ script_pre_check() {
 		ln -s /etc/sing-box /opt/CherryScript/sing-box
 	fi
 
-	cd $is_sh_dir
-	curl -sSO $script_update_link
-
 	# Start Menu
-	start_script
+	case $1 in
+	update) update "$2" "$3" ;;
+	add) install_script_start; add "${@:2}" ;;
+	change) change "${@:2}" ;;
+	del) del "${@:2}" ;;
+	info) info "${@:2}" ;;
+	start | stop | restart) manage "$1" ;;
+	ss2022) get ss2022 "$2" ;;
+	'') start_script ;;
+	*) err "无法识别命令: $1" ;;
+	esac
 
 	# remove tmp dir and exit.
 	exit_and_del_tmpdir ok
 }
 
-script_pre_check $@
+script_pre_check "$@"
