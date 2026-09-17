@@ -227,10 +227,11 @@ get_pbk() {
 }
 
 show_list() {
-	PS3=''
-	COLUMNS=1
-	select i in "$@"; do echo; done &
-	wait
+	local item index=1
+	for item in "$@"; do
+		printf '%s) %s\n' "$index" "$item"
+		index=$((index + 1))
+	done
 }
 
 open_firewall_port() {
