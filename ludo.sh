@@ -4873,16 +4873,15 @@ local_enable_bbr() {
 	cat >$DEFAULT_TCP_BBR_FILE <<EOF
 net.core.default_qdisc=fq
 net.ipv4.tcp_congestion_control = bbr
-net.core.rmem_max = 67108848
-net.core.wmem_max = 67108848
+net.core.rmem_max = 33554432
+net.core.wmem_max = 33554432
 net.core.somaxconn = 4096
 net.ipv4.tcp_max_syn_backlog = 4096
-net.ipv4.tcp_rmem = 16384 16777216 536870912
-net.ipv4.tcp_wmem = 16384 16777216 536870912
-net.ipv4.tcp_adv_win_scale = -2
+net.ipv4.tcp_rmem = 4096 131072 33554432
+net.ipv4.tcp_wmem = 4096 16384 33554432
+net.ipv4.tcp_adv_win_scale = 1
 net.ipv4.tcp_sack = 1
 net.ipv4.tcp_timestamps = 1
-net.ipv4.tcp_fastopen=3
 kernel.panic = -1
 vm.swappiness = 0
 EOF
