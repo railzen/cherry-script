@@ -3,7 +3,7 @@ PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:~/bin
 export PATH
 
 
-sh_ver="1.1.1 build260627"
+sh_ver="1.1.2 build261102"
 SNELL_VERSION="v5.0.1"
 SNELL_CONFIG_VERSION="5"
 filepath=$(cd "$(dirname "$0")"; pwd)
@@ -541,31 +541,37 @@ Status(){
 }
 
 Update_Shell(){
+	local sh_url="https://raw.githubusercontent.com/railzen/CherryScript/main/proxy/snell.sh"
+	local sh_tmp="/tmp/cherry_snell.sh"
 	echo -e "当前版本为 [ ${sh_ver} ]，开始检测最新版本..."
-	sh_new_ver=$(wget --no-check-certificate -qO- "https://raw.githubusercontent.com/railzen/DownloadStation/main/Shell/snell/Snell_v2.sh"|grep 'sh_ver="'|awk -F "=" '{print $NF}'|sed 's/\"//g'|head -1)
+	sh_new_ver=$(wget --no-check-certificate -qO- "${sh_url}"|grep 'sh_ver="'|awk -F "=" '{print $NF}'|sed 's/\"//g'|head -1)
 	[[ -z ${sh_new_ver} ]] && echo -e "${Error} 检测最新版本失败 !" && before_start_menu
 	if [[ ${sh_new_ver} != ${sh_ver} ]]; then
 		echo -e "发现新版本[ ${sh_new_ver} ]，是否更新？[Y/n]"
 		read -p "(默认: y):" yn
 		[[ -z "${yn}" ]] && yn="y"
 		if [[ ${yn} == [Yy] ]]; then
-			wget -O snell.sh --no-check-certificate https://raw.githubusercontent.com/railzen/DownloadStation/main/Shell/snell/Snell_v2.sh && chmod +x snell.sh
-			echo -e "脚本已更新为最新版本[ ${sh_new_ver} ] !"
-			echo -e "3s后执行新脚本"
-            sleep 3s
-            bash snell.sh
+			if wget -qO "${sh_tmp}" --no-check-certificate "${sh_url}" && grep -q 'sh_ver="' "${sh_tmp}"; then
+				chmod +x "${sh_tmp}"
+				echo -e "脚本已更新为最新版本[ ${sh_new_ver} ] !"
+				echo -e "3s后执行新脚本"
+				sleep 3s
+				exec bash "${sh_tmp}"
+			else
+				rm -f "${sh_tmp}"
+				echo -e "${Error} 下载最新脚本失败 !"
+				before_start_menu
+			fi
 		else
 			echo && echo "	已取消..." && echo
-            sleep 3s
-            start_menu
+			sleep 3s
+			start_menu
 		fi
 	else
 		echo -e "当前已是最新版本[ ${sh_new_ver} ] !"
 		sleep 3s
-        start_menu
+		start_menu
 	fi
-	sleep 3s
-    bash snell.sh
 }
 before_start_menu() {
     echo && echo -n -e "${Yellow_font_prefix}按任意键返回主菜单...${Font_color_suffix}" && read -n 1 -s -r -p ""
