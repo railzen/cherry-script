@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-main_version="V1.1.43 Build260627"
+main_version="V1.1.44 Build261102"
 work_path="/opt/CherryScript"
 
 main_menu_start() {
@@ -15,8 +15,11 @@ main_menu_start() {
 		echo -e "${LightBlue}Cherry Script $main_version (Support for Ubuntu/Debian)${White}"
 		echo -e "${LightBlue}Personal use, unauthorized use prohibited!${White}"
 		echo -e "${LightBlue}------- Press ${DarkYellow}ludo${LightBlue} to start script -------${White}"
-		ssh_port=$(ss -tnlp 2>/dev/null | awk '/sshd/ && /LISTEN/ {sub(".*:", "", $4); print $4; exit}')
-		[ "$ssh_port" = "22" ] && command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q '^Status: active' && (ufw status 2>/dev/null | awk '$2=="ALLOW" && $1 ~ "(^|,|:|/)(22)(/tcp)?($|,|:)" {r++; for(i=3;i<=NF;i++) if($i~/^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/||$i~/:/) ip++} END{exit !(r>0 && !(r==1 && ip==1))}' && echo -e "${DarkYellow}SSH Port 22 Open${White}" || echo -e "${LightBlue}SSH Port 22 Close${White}")
+		ssh_port_is_open
+		case $? in
+		0) echo -e "${DarkYellow}SSH Port ${global_ssh_port} Open${White}" ;;
+		1) echo -e "${LightBlue}SSH Port ${global_ssh_port} Close${White}" ;;
+		esac
 		echo "------------------------"
 		echo "1. 系统信息查询"
 		echo "2. 系统更新"
@@ -5002,74 +5005,120 @@ root_use() {
 	[ "$EUID" -ne 0 ] && echo -e "${Yellow}请注意，该功能需要root用户才能运行！${White}" && break_end && back_main
 }
 
+# 检测 SSH 端口是否对任意来源（Anywhere）开放
+# 返回值：0=开放  1=关闭（仅限特定来源或被防火墙拦截）  2=无法判断（非 root / 未找到 sshd）
+# 端口号写入 global_ssh_port
+# 优先级：ufw(启用时) > firewalld(运行时) > iptables(有规则时) > nftables；都没有则视为开放
 ssh_port_is_open() {
+	global_ssh_port=""
+	[ "$EUID" -ne 0 ] && return 2
 	global_ssh_port=$(
 		ss -tnlp 2>/dev/null |
 			awk '/sshd/ && /LISTEN/ {sub(".*:", "", $4); print $4; exit}'
 	)
-	[ -z "$global_ssh_port" ] && return 1
+	[ -z "$global_ssh_port" ] && return 2
+	local p="$global_ssh_port"
 
-	firewall_active=0
-	ssh_allowed=0
-
-	if command -v ufw >/dev/null 2>&1; then
-		ufw_status=$(ufw status 2>/dev/null | awk '/Status:/ {print $2}')
-		if [ "$ufw_status" = "active" ]; then
-			ufw_rules=$(ufw status 2>/dev/null)
-			if echo "$ufw_rules" | awk -v p="$global_ssh_port" '
-                $2=="ALLOW" && $1 ~ "(^|,|:|/)("p")(/tcp)?($|,|:)" { r++; for(i=3;i<=NF;i++) if($i~/^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/||$i~/:/) ip++ } END{exit !(r>0 && !(r==1 && ip==1))}'; then
-				firewall_active=1
-				ssh_allowed=1
-			else
-				# 只有当 ufw 有规则才算 active
-				if echo "$ufw_rules" | awk 'NR>2 {exit 0}'; then
-					firewall_active=1
-				fi
-			fi
-		fi
+	# 1. ufw：只要有一条放行该端口且来源为 Anywhere 的规则就算开放
+	if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q '^Status: active'; then
+		ufw status 2>/dev/null | awk -v p="$p" '
+			{ sub(/[ \t]*#.*/, ""); gsub(/ \(v6\)/, "") }   # 去掉注释与 (v6) 标记
+			{
+				k = 0
+				for (i = 2; i <= NF; i++) if ($i ~ /^(ALLOW|LIMIT|DENY|REJECT)$/) { k = i; break }
+				if (!k || $k !~ /^(ALLOW|LIMIT)$/) next
+				from = $(k + 1)
+				if (from == "OUT" || from == "FWD") next
+				if (from == "IN") from = $(k + 2)
+				if (from != "Anywhere") next
+				to = $1
+				if (to == "Anywhere") { open = 1; next }
+				if (to == "OpenSSH") { if (p == 22) open = 1; next }
+				if (to ~ /\/udp$/) next
+				sub(/\/tcp$/, "", to)
+				n = split(to, a, ",")
+				for (i = 1; i <= n; i++) {
+					if (split(a[i], r, ":") == 2) { if (p + 0 >= r[1] + 0 && p + 0 <= r[2] + 0) open = 1 }
+					else if (a[i] == p) open = 1
+				}
+			}
+			END { exit !open }'
+		return $?
 	fi
 
+	# 2. firewalld：默认区域放行了该端口（或 ssh 服务且端口为 22）即开放；带来源限制的富规则不计入
 	if command -v firewall-cmd >/dev/null 2>&1 && firewall-cmd --state >/dev/null 2>&1; then
-		ports=$(firewall-cmd --list-ports 2>/dev/null)
-		services=$(firewall-cmd --list-services 2>/dev/null)
-
-		# 只有存在端口/服务才算 active
-		if [ -n "$ports" ] || [ -n "$services" ]; then
-			firewall_active=1
-			echo "$ports" | grep -qw "${global_ssh_port}/tcp" && ssh_allowed=1
-			echo "$services" | grep -qw ssh && [ "$global_ssh_port" = "22" ] && ssh_allowed=1
-		fi
+		firewall-cmd --list-services 2>/dev/null | grep -qw ssh && [ "$p" = "22" ] && return 0
+		local item
+		for item in $(firewall-cmd --list-ports 2>/dev/null); do
+			case "$item" in */tcp) ;; *) continue ;; esac
+			item=${item%/tcp}
+			if [[ "$item" == *-* ]]; then
+				[ "$p" -ge "${item%-*}" ] && [ "$p" -le "${item#*-}" ] && return 0
+			else
+				[ "$item" = "$p" ] && return 0
+			fi
+		done
+		return 1
 	fi
 
+	# 3. iptables：INPUT 链存在无来源限制的 ACCEPT 即开放；否则默认策略 DROP 或存在兜底 DROP 视为关闭
+	local ipt_rules
 	if command -v iptables >/dev/null 2>&1; then
-		ssh_rules=$(iptables -S INPUT 2>/dev/null | grep -- "-p tcp" | grep -- "--dport $global_ssh_port")
-		if [ -n "$ssh_rules" ]; then
-			firewall_active=1
-			echo "$ssh_rules" | awk -v p="$global_ssh_port" '
-                $0 ~ "-j ACCEPT" { r++; if($0 ~ "-s ") ip++ } END { exit !(r>0 && !(r==1 && ip==1)) }
-            ' && ssh_allowed=1
+		ipt_rules=$(iptables -S INPUT 2>/dev/null)
+		if [ -n "$ipt_rules" ] && { [ "$(echo "$ipt_rules" | wc -l)" -gt 1 ] || ! echo "$ipt_rules" | grep -q '^-P INPUT ACCEPT'; }; then
+			echo "$ipt_rules" | awk -v p="$p" '
+				/^-P INPUT/ { if ($3 != "ACCEPT") blocked = 1; next }
+				/^-A INPUT/ {
+					if ($0 ~ /^-A INPUT -j (DROP|REJECT)/) { blocked = 1; next }
+					if ($0 !~ /-j ACCEPT/) next
+					if ($0 ~ /^-A INPUT -j ACCEPT/) { open = 1; next }
+					if ($0 ~ / -s / || $0 ~ / -i lo /) next
+					dp = ""
+					for (i = 1; i <= NF; i++) if ($i == "--dport" || $i == "--dports" || $i == "--destination-port") dp = $(i + 1)
+					if (dp == "" || $0 !~ /-p (tcp|6) /) next
+					n = split(dp, a, ",")
+					for (i = 1; i <= n; i++) {
+						if (split(a[i], r, ":") == 2) { if (p + 0 >= r[1] + 0 && p + 0 <= r[2] + 0) open = 1 }
+						else if (a[i] == p) open = 1
+					}
+				}
+				END { if (open) exit 0; exit (blocked ? 1 : 0) }'
+			return $?
 		fi
 	fi
 
+	# 4. nftables：hook input 链中存在无 saddr 限制的 tcp dport accept 即开放；否则 policy drop 或兜底 drop 视为关闭
 	if command -v nft >/dev/null 2>&1; then
-		ruleset=$(nft list ruleset 2>/dev/null)
-		ssh_rules=$(echo "$ruleset" | awk -v p="$global_ssh_port" '
-            /hook input/ {hook=1}
-            hook && /tcp dport/ && $0 ~ p {print $0}
-        ')
-		if [ -n "$ssh_rules" ]; then
-			firewall_active=1
-			echo "$ssh_rules" | awk -v p="$global_ssh_port" '
-                /accept/ { r++; if($0 ~ "ip saddr" || $0 ~ "ip6 saddr") ip++ } END { exit !(r>0 && !(r==1 && ip==1)) }
-            ' && ssh_allowed=1
-		fi
+		nft list ruleset 2>/dev/null | awk -v p="$p" '
+			function inlist(s,    n, a, i, r) {
+				gsub(/[{} ]/, "", s)
+				n = split(s, a, ",")
+				for (i = 1; i <= n; i++) {
+					if (split(a[i], r, "-") == 2) { if (p + 0 >= r[1] + 0 && p + 0 <= r[2] + 0) return 1 }
+					else if (a[i] == p) return 1
+				}
+				return 0
+			}
+			/^[ \t]*chain / { inchain = 1; hook = 0; next }
+			inchain && /hook input/ { hook = 1; if ($0 ~ /policy drop/) blocked = 1; next }
+			inchain && /^[ \t]*}/ { inchain = 0; hook = 0; next }
+			hook {
+				if ($0 !~ /(^|[ \t])accept([ \t;]|$)/) {
+					if ($0 ~ /^[ \t]*(counter( packets [0-9]+ bytes [0-9]+)?[ \t]+)?(drop|reject)/) blocked = 1
+					next
+				}
+				if ($0 ~ /saddr/) next
+				if (match($0, /tcp dport (\{[^}]*\}|[0-9-]+)/)) {
+					if (inlist(substr($0, RSTART + 10, RLENGTH - 10))) open = 1
+				}
+			}
+			END { if (open) exit 0; exit (blocked ? 1 : 0) }'
+		return $?
 	fi
 
-	if [ "$ssh_allowed" -eq 1 ] || [ "$firewall_active" -eq 0 ]; then
-		return 0
-	fi
-
-	return 1
+	# 未检测到任何防火墙
+	return 0
 }
 
 # 检查变量和初始化变量
