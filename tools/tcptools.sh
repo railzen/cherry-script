@@ -140,7 +140,13 @@ systemctl daemon-reload
 
 
 Update_Shell(){
-  wget -N "https://raw.githubusercontent.com/railzen/DownloadStation/main/Shell/cherry/tcptools.sh" -O tools.sh && chmod +x tools.sh && ./tools.sh
+  local sh_tmp="/tmp/cherry_tcptools.sh"
+  if wget -qO "${sh_tmp}" "https://raw.githubusercontent.com/railzen/CherryScript/main/tools/tcptools.sh" && [ -s "${sh_tmp}" ]; then
+    chmod +x "${sh_tmp}" && exec bash "${sh_tmp}"
+  else
+    rm -f "${sh_tmp}"
+    echo "下载最新脚本失败 !"
+  fi
 }
 
 get_opsy() {

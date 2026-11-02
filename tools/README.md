@@ -18,6 +18,6 @@ apt update -y  && apt install -y curl
 ***
 ### 一键脚本
 ```bash
-curl -sS -O https://raw.githubusercontent.com/railzen/DownloadStation/main/Shell/cherry/ludo.sh && chmod +x ludo.sh && ./ludo.sh
+curl -sS -O https://raw.githubusercontent.com/railzen/CherryScript/main/ludo.sh && chmod +x ludo.sh && ./ludo.sh
 ```
 
