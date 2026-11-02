@@ -541,7 +541,7 @@ Status(){
 }
 
 Update_Shell(){
-	local sh_url="https://raw.githubusercontent.com/railzen/CherryScript/main/proxy/snell.sh"
+	local sh_url="https://raw.githubusercontent.com/railzen/cherry-script/main/proxy/snell.sh"
 	local sh_tmp="/tmp/cherry_snell.sh"
 	echo -e "当前版本为 [ ${sh_ver} ]，开始检测最新版本..."
 	sh_new_ver=$(wget --no-check-certificate -qO- "${sh_url}"|grep 'sh_ver="'|awk -F "=" '{print $NF}'|sed 's/\"//g'|head -1)

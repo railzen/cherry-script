@@ -141,7 +141,7 @@ systemctl daemon-reload
 
 Update_Shell(){
   local sh_tmp="/tmp/cherry_tcptools.sh"
-  if wget -qO "${sh_tmp}" "https://raw.githubusercontent.com/railzen/CherryScript/main/tools/tcptools.sh" && [ -s "${sh_tmp}" ]; then
+  if wget -qO "${sh_tmp}" "https://raw.githubusercontent.com/railzen/cherry-script/main/tools/tcptools.sh" && [ -s "${sh_tmp}" ]; then
     chmod +x "${sh_tmp}" && exec bash "${sh_tmp}"
   else
     rm -f "${sh_tmp}"

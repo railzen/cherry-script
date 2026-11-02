@@ -21,7 +21,7 @@ _red_bg() { echo -e "\e[41m$@${none}"; }
 
 # wget installed or none
 is_wget=$(type -P wget)
-script_update_link="https://raw.githubusercontent.com/railzen/CherryScript/main/proxy/sing_box.sh"
+script_update_link="https://raw.githubusercontent.com/railzen/cherry-script/main/proxy/sing_box.sh"
 is_core=sing-box
 is_core_name=sing-box
 is_core_dir=/etc/$is_core

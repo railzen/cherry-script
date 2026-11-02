@@ -16,7 +16,7 @@ curl -sSL https://ba.sh/ludo -o ludo.sh && bash ludo.sh
 ```
 or
 ```bash
-if [ -f /usr/bin/curl ];then curl -sSO https://raw.githubusercontent.com/railzen/CherryScript/main/ludo.sh;else wget -O ludo.sh https://raw.githubusercontent.com/railzen/CherryScript/main/ludo.sh;fi;chmod +x ludo.sh;./ludo.sh
+if [ -f /usr/bin/curl ];then curl -sSO https://raw.githubusercontent.com/railzen/cherry-script/main/ludo.sh;else wget -O ludo.sh https://raw.githubusercontent.com/railzen/cherry-script/main/ludo.sh;fi;chmod +x ludo.sh;./ludo.sh
 ```
 ***
 ### Cherry一键脚本 的支持列表：

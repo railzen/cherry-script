@@ -214,8 +214,8 @@ main_menu_start() {
 						if [[ ${yn} == [Yy] ]]; then
 							mkdir -p ${work_path}/config
 							mkdir -p ${work_path}/frps && cd ${work_path}/frps
-							wget -q -nc --no-check-certificate https://raw.githubusercontent.com/railzen/CherryScript/main/tools/frps && chmod +x frps
-							wget -q -nc --no-check-certificate https://raw.githubusercontent.com/railzen/CherryScript/main/tools/frps.toml
+							wget -q -nc --no-check-certificate https://raw.githubusercontent.com/railzen/cherry-script/main/tools/frps && chmod +x frps
+							wget -q -nc --no-check-certificate https://raw.githubusercontent.com/railzen/cherry-script/main/tools/frps.toml
 							mv -f frps.toml /opt/CherryScript/config/frps.toml
 							echo '
 [Unit]
@@ -681,7 +681,7 @@ WantedBy=multi-user.target' >/etc/systemd/system/Cherry-startup.service
 
 		9)
 			clear
-			bash <(curl -sSL https://raw.githubusercontent.com/railzen/CherryScript/main/tools/gost_relay.sh)
+			bash <(curl -sSL https://raw.githubusercontent.com/railzen/cherry-script/main/tools/gost_relay.sh)
 			back_main
 			;;
 
@@ -693,17 +693,17 @@ WantedBy=multi-user.target' >/etc/systemd/system/Cherry-startup.service
 
 		11)
 			clear
-			bash <(curl -sL https://raw.githubusercontent.com/railzen/CherryScript/main/proxy/snell.sh)
+			bash <(curl -sL https://raw.githubusercontent.com/railzen/cherry-script/main/proxy/snell.sh)
 			;;
 
 		12)
 			clear
-			bash <(curl -sSL https://raw.githubusercontent.com/railzen/CherryScript/main/proxy/setup_hysteria.sh)
+			bash <(curl -sSL https://raw.githubusercontent.com/railzen/cherry-script/main/proxy/setup_hysteria.sh)
 			;;
 
 		13)
 			clear
-			bash <(curl -sSL https://raw.githubusercontent.com/railzen/CherryScript/main/proxy/sing_box.sh)
+			bash <(curl -sSL https://raw.githubusercontent.com/railzen/cherry-script/main/proxy/sing_box.sh)
 			back_main
 			;;
 
@@ -1626,13 +1626,13 @@ system_tools_menu() {
 					update-grub
 
 					wget -qO - https://dl.xanmod.org/archive.key | gpg --dearmor -vo /etc/apt/keyrings/xanmod-archive-keyring.gpg
-					#wget -qO - https://raw.githubusercontent.com/railzen/CherryScript/main/tools/cherry/config/archive.key | gpg --dearmor -o /usr/share/keyrings/xanmod-archive-keyring.gpg --yes
+					#wget -qO - https://raw.githubusercontent.com/railzen/cherry-script/main/tools/cherry/config/archive.key | gpg --dearmor -o /usr/share/keyrings/xanmod-archive-keyring.gpg --yes
 
 					# 步骤3：添加存储库
 					echo 'deb [signed-by=/etc/apt/keyrings/xanmod-archive-keyring.gpg] http://deb.xanmod.org $(lsb_release -sc) main' | tee /etc/apt/sources.list.d/xanmod-release.list
 
 					version=$(wget -q https://dl.xanmod.org/check_x86-64_psabi.sh && chmod +x check_x86-64_psabi.sh && ./check_x86-64_psabi.sh | grep -oP 'x86-64-v\K\d+|x86-64-v\d+')
-					# version=$(wget -q https://raw.githubusercontent.com/railzen/CherryScript/main/tools/check_x86-64_psabi.sh && chmod +x check_x86-64_psabi.sh && ./check_x86-64_psabi.sh | grep -oP 'x86-64-v\K\d+|x86-64-v\d+')
+					# version=$(wget -q https://raw.githubusercontent.com/railzen/cherry-script/main/tools/check_x86-64_psabi.sh && chmod +x check_x86-64_psabi.sh && ./check_x86-64_psabi.sh | grep -oP 'x86-64-v\K\d+|x86-64-v\d+')
 
 					apt update -y
 					apt install -y linux-xanmod-lts-x64v$version
@@ -2361,7 +2361,7 @@ EOF
 			echo "如果实际服务器就100G流量，可设置阈值为95G，提前关机，以免出现流量误差或溢出."
 			read -p "请输入流量阈值（单位为GB）: " threshold_gb
 			cd ~
-			curl -Ss -O https://raw.githubusercontent.com/railzen/CherryScript/main/tools/Limiting_Shut_down.sh
+			curl -Ss -O https://raw.githubusercontent.com/railzen/cherry-script/main/tools/Limiting_Shut_down.sh
 			chmod +x ~/Limiting_Shut_down.sh
 			sed -i "s/110/$threshold_gb/g" ~/Limiting_Shut_down.sh
 			crontab -l | grep -v '~/Limiting_Shut_down.sh' | crontab -
@@ -2477,7 +2477,7 @@ EOF
 		
 	26)
 		clear
-		bash <(curl -sSL https://raw.githubusercontent.com/railzen/CherryScript/main/tools/tcptools.sh)
+		bash <(curl -sSL https://raw.githubusercontent.com/railzen/cherry-script/main/tools/tcptools.sh)
 		;;
 
 	99)
@@ -2959,7 +2959,7 @@ panel_install_menu() {
 				docker rmi -f p3terx/aria2-pro
 
 				cd /home/ && mkdir -p docker/cloud && cd docker/cloud && mkdir temp_data && mkdir -vp cloudreve/{uploads,avatar} && touch cloudreve/conf.ini && touch cloudreve/cloudreve.db && mkdir -p aria2/config && mkdir -p data/aria2 && chmod -R 777 data/aria2
-				curl -o /home/docker/cloud/docker-compose.yml https://raw.githubusercontent.com/railzen/CherryScript/main/tools/config/cloudreve-docker-compose.yml
+				curl -o /home/docker/cloud/docker-compose.yml https://raw.githubusercontent.com/railzen/cherry-script/main/tools/config/cloudreve-docker-compose.yml
 				cd /home/docker/cloud/ && docker-compose up -d
 
 				clear
@@ -3002,7 +3002,7 @@ panel_install_menu() {
 				clear
 				install_docker
 				cd /home/ && mkdir -p docker/cloud && cd docker/cloud && mkdir temp_data && mkdir -vp cloudreve/{uploads,avatar} && touch cloudreve/conf.ini && touch cloudreve/cloudreve.db && mkdir -p aria2/config && mkdir -p data/aria2 && chmod -R 777 data/aria2
-				curl -o /home/docker/cloud/docker-compose.yml https://raw.githubusercontent.com/railzen/CherryScript/main/tools/config/cloudreve-docker-compose.yml
+				curl -o /home/docker/cloud/docker-compose.yml https://raw.githubusercontent.com/railzen/cherry-script/main/tools/config/cloudreve-docker-compose.yml
 				cd /home/docker/cloud/ && docker-compose up -d
 
 				clear
@@ -4011,14 +4011,14 @@ port_in_use() {
 
 Update_Shell() {
 	echo -e "当前版本为 ${main_version} ，开始检测最新版本..."
-	sh_new_ver=$(curl -s "https://raw.githubusercontent.com/railzen/CherryScript/main/ludo.sh" | grep 'main_version="' | awk -F "=" '{print $NF}' | sed 's/\"//g' | head -1)
+	sh_new_ver=$(curl -s "https://raw.githubusercontent.com/railzen/cherry-script/main/ludo.sh" | grep 'main_version="' | awk -F "=" '{print $NF}' | sed 's/\"//g' | head -1)
 	[[ -z ${sh_new_ver} ]] && echo -e "${Error} 检测最新版本失败 !" && break_end
 	if [[ ${sh_new_ver} != ${main_version} ]]; then
 		read -p "发现新版本 ${sh_new_ver} ，是否更新？[Y/n] " yn
 		[[ -z "${yn}" ]] && yn="y"
 		if [[ ${yn} == [Yy] ]]; then
 			cd ${work_path}/
-			curl -sS -O https://raw.githubusercontent.com/railzen/CherryScript/main/ludo.sh && chmod +x ludo.sh
+			curl -sS -O https://raw.githubusercontent.com/railzen/cherry-script/main/ludo.sh && chmod +x ludo.sh
 			rm -f /usr/local/bin/ludo
 			cp -f ${work_path}/ludo.sh /usr/local/bin/ludo >/dev/null 2>&1
 			echo ""
@@ -4326,19 +4326,19 @@ f2b_install_sshd() {
 	if grep -q 'Alpine' /etc/issue; then
 		cd /path/to/fail2ban/config/fail2ban/filter.d
 
-		curl -sS -O https://raw.githubusercontent.com/railzen/CherryScript/main/tools/config/fail2ban/alpine-sshd.conf
-		curl -sS -O https://raw.githubusercontent.com/railzen/CherryScript/main/tools/config/fail2ban/alpine-sshd-ddos.conf
+		curl -sS -O https://raw.githubusercontent.com/railzen/cherry-script/main/tools/config/fail2ban/alpine-sshd.conf
+		curl -sS -O https://raw.githubusercontent.com/railzen/cherry-script/main/tools/config/fail2ban/alpine-sshd-ddos.conf
 		cd /path/to/fail2ban/config/fail2ban/jail.d/
-		curl -sS -O https://raw.githubusercontent.com/railzen/CherryScript/main/tools/config/fail2ban/alpine-ssh.conf
+		curl -sS -O https://raw.githubusercontent.com/railzen/cherry-script/main/tools/config/fail2ban/alpine-ssh.conf
 	elif grep -qi 'CentOS' /etc/redhat-release; then
 		cd /path/to/fail2ban/config/fail2ban/jail.d/
-		curl -sS -O https://raw.githubusercontent.com/railzen/CherryScript/main/tools/config/fail2ban/centos-ssh.conf
+		curl -sS -O https://raw.githubusercontent.com/railzen/cherry-script/main/tools/config/fail2ban/centos-ssh.conf
 	else
 		install rsyslog
 		systemctl start rsyslog
 		systemctl enable rsyslog
 		cd /path/to/fail2ban/config/fail2ban/jail.d/
-		curl -sS -O https://raw.githubusercontent.com/railzen/CherryScript/main/tools/config/fail2ban/linux-ssh.conf
+		curl -sS -O https://raw.githubusercontent.com/railzen/cherry-script/main/tools/config/fail2ban/linux-ssh.conf
 	fi
 }
 
@@ -5156,7 +5156,7 @@ chech_dependance() {
 	cp -f ${work_path}/ludo.sh /usr/local/bin/ludo >/dev/null 2>&1
 	cd ${work_path}/work
 	startup_check_new_version="false"
-	sh_new_ver=$(curl --connect-timeout 2 --max-time 2 -s "https://raw.githubusercontent.com/railzen/CherryScript/main/ludo.sh" | grep 'main_version="' | awk -F "=" '{print $NF}' | sed 's/\"//g' | head -1)
+	sh_new_ver=$(curl --connect-timeout 2 --max-time 2 -s "https://raw.githubusercontent.com/railzen/cherry-script/main/ludo.sh" | grep 'main_version="' | awk -F "=" '{print $NF}' | sed 's/\"//g' | head -1)
 
 	if [ -n "$sh_new_ver" ]; then
 		if [[ ${sh_new_ver} != ${main_version} ]]; then
@@ -5182,7 +5182,7 @@ elif [[ ! $# = 0 && $1 = "edit" ]]; then
 	exit 0
 elif [[ ! $# = 0 && $1 = "update" ]]; then
 	mkdir -p ${work_path} && cd ${work_path}/
-	curl -sS -O https://raw.githubusercontent.com/railzen/CherryScript/main/ludo.sh && chmod +x ludo.sh
+	curl -sS -O https://raw.githubusercontent.com/railzen/cherry-script/main/ludo.sh && chmod +x ludo.sh
 	rm -f /usr/local/bin/ludo
 	cp -f ${work_path}/ludo.sh /usr/local/bin/ludo >/dev/null 2>&1
 	echo -e "Update Ver Success! "
