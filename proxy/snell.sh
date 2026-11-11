@@ -772,22 +772,7 @@ action=$1
 	echo && echo -e "  
 ==============================
 Snell Server 管理脚本 $sh_ver 
-==============================
- ${Green_font_prefix} 1.${Font_color_suffix} 安装 Snell Server
- ${Green_font_prefix} 2.${Font_color_suffix} 卸载 Snell Server
-——————————————————————————————
- ${Green_font_prefix} 3.${Font_color_suffix} 启动 Snell Server
- ${Green_font_prefix} 4.${Font_color_suffix} 停止 Snell Server
- ${Green_font_prefix} 5.${Font_color_suffix} 重启 Snell Server
-——————————————————————————————
- ${Green_font_prefix} 6.${Font_color_suffix} 设置 配置信息
- ${Green_font_prefix} 7.${Font_color_suffix} 查看 配置信息
- ${Green_font_prefix} 8.${Font_color_suffix} 查看 运行状态
-——————————————————————————————
- ${Green_font_prefix} 9.${Font_color_suffix} 更新脚本
-——————————————————————————————
- ${Green_font_prefix} 0.${Font_color_suffix} 退出脚本
-==============================" && echo
+=============================="
 	local s
 	for s in 5 6; do
 		use_slot ${s}
@@ -803,7 +788,22 @@ Snell Server 管理脚本 $sh_ver
 		fi
 	done
 	use_slot 5
-	echo
+	echo -e "==============================
+ ${Green_font_prefix} 1.${Font_color_suffix} 安装 Snell Server
+ ${Green_font_prefix} 2.${Font_color_suffix} 卸载 Snell Server
+——————————————————————————————
+ ${Green_font_prefix} 3.${Font_color_suffix} 启动 Snell Server
+ ${Green_font_prefix} 4.${Font_color_suffix} 停止 Snell Server
+ ${Green_font_prefix} 5.${Font_color_suffix} 重启 Snell Server
+——————————————————————————————
+ ${Green_font_prefix} 6.${Font_color_suffix} 设置 配置信息
+ ${Green_font_prefix} 7.${Font_color_suffix} 查看 配置信息
+ ${Green_font_prefix} 8.${Font_color_suffix} 查看 运行状态
+——————————————————————————————
+ ${Green_font_prefix} 9.${Font_color_suffix} 更新脚本
+——————————————————————————————
+ ${Green_font_prefix} 0.${Font_color_suffix} 退出脚本
+==============================" && echo
 	read -e -p " 请输入数字[0-9]:" num
 	case "$num" in
 		1)
