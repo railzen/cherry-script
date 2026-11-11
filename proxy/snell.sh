@@ -3,7 +3,7 @@ PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:~/bin
 export PATH
 
 
-sh_ver="1.2.0 build261112"
+sh_ver="1.2.1 build261112"
 # 各协议版本对应的官方 snell-server 版本
 SNELL_V5_VERSION="v5.0.1"
 SNELL_V6_VERSION="v6.0.0"
@@ -376,6 +376,12 @@ Set_psk(){
 	echo "请输入 Snell Server 密钥${Yellow_font_prefix}[0-9][a-z][A-Z]${Font_color_suffix}"
 	read -e -p "(默认: 随机生成):" psk
 	[[ -z "${psk}" ]] && psk=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 20)
+	# Snell v6 要求密钥长度为 12-255
+	while [[ "${SLOT}" == "6" ]] && (( ${#psk} < 12 || ${#psk} > 255 )); do
+		echo "Snell v6 的密钥长度必须在 12-255 之间, 请重新输入。"
+		read -e -p "(默认: 随机生成):" psk
+		[[ -z "${psk}" ]] && psk=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 20)
+	done
 	echo && echo "=============================="
 	echo -e "密钥 : ${Red_background_prefix} ${psk} ${Font_color_suffix}"
 	echo "==============================" && echo
@@ -680,12 +686,11 @@ View_one(){
 Show_subscribe_link(){
 	local line
 	for line in "CLASH: ${clash_link}" "SURGE: ${surge_link}" "Shadowrocket: ${shadowrocket_link}"; do
-		# v6 没有 Clash / Shadowrocket 链接
+		# 该版本没有的链接留空，跳过
 		[[ "${line}" == *": " ]] && continue
 		echo "${line}"
 		[[ "$1" == "save" ]] && echo "${line}" >> ~/Proxy.txt
 	done
-	[[ "${SLOT}" == "6" ]] && echo -e "${Tip} Snell v6 目前仅生成 Surge 链接，客户端需使用支持 v6 的 Surge 版本。"
 	return 0
 }
 
@@ -699,9 +704,11 @@ Get_subscribe_link(){
 	if [[ "${SLOT}" == "6" ]]; then
 		# 与 v5 节点同时存在时避免重名
 		node_name="${node_name}-v6"
-		clash_link=""
-		shadowrocket_link=""
+		# mihomo (Clash Meta) proxies 条目
+		clash_link="{name: ${node_name}, type: snell, server: ${ipv4}, port: ${port}, psk: ${psk}, version: 6, mode: ${mode}, reuse: true}"
 		surge_link="${node_name} = snell, ${ipv4}, ${port}, psk=${psk}, version=6, mode=${mode}, reuse=true"
+		# Shadowrocket 暂不支持 v6，不生成
+		shadowrocket_link=""
 		return
 	fi
 	shadowrocket_userinfo=$(printf "%s" "chacha20-ietf-poly1305:${psk}" | base64 | tr -d '\n')
