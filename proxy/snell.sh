@@ -3,7 +3,7 @@ PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:~/bin
 export PATH
 
 
-sh_ver="1.1.2 build261102"
+sh_ver="1.1.3 build261112"
 SNELL_VERSION="v5.0.1"
 SNELL_CONFIG_VERSION="5"
 filepath=$(cd "$(dirname "$0")"; pwd)
@@ -499,9 +499,7 @@ getipv6(){
 }
 
 View(){
-	check_installed_status
-	Read_config
-	getipv4
+	Get_subscribe_link
 	getipv6
 	clear && echo
 	echo -e "Snell Server V${ver} 配置信息："
@@ -516,6 +514,10 @@ View(){
 	echo -e " TFO\t: ${Green_font_prefix}${tfo}${Font_color_suffix}"
 	echo -e " VER\t: ${Green_font_prefix}${ver}${Font_color_suffix}"
 	echo -e "—————————————————————————"
+	echo "以下是您的订阅链接"
+	echo "CLASH: ${clash_link}"
+	echo "SURGE: ${surge_link}"
+	echo "Shadowrocket: ${shadowrocket_link}"
 	echo
 	before_start_menu
 }
